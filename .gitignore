@@ -1,0 +1,20 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# env & secrets
+.env
+backend/.env
+
+# 原文件磁盘存储(可能是唯一副本,单独备份,不入 git)
+data/
+
+# node
+node_modules/
+dist/
+
+# os
+.DS_Store
+Thumbs.db

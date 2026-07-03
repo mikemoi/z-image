@@ -1,0 +1,14 @@
+# 上服务器时用。本地已直接用宿主机 PostgreSQL + uvicorn,无需 compose。
+# 假设服务器上 PostgreSQL 已单独运行,这里只跑后端,连外部 PG。
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - /data/zbrain/files:/app/data/zbrain/files
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

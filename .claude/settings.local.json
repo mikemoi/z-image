@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(docker --version)",
+      "PowerShell(if \\($?\\) { \"Docker: OK\" } else { \"Docker: NOT FOUND\" })",
+      "PowerShell(psql --version)",
+      "PowerShell(if \\($?\\) { \"psql: OK\" } else { \"psql: NOT FOUND\" })",
+      "PowerShell(winget --version)",
+      "PowerShell(wsl --status 2>$null)",
+      "PowerShell(wsl -l -v 2>$null)",
+      "PowerShell(Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V)",
+      "PowerShell(Get-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform)",
+      "PowerShell(winget search postgresql --source winget)",
+      "PowerShell(winget install PostgreSQL.PostgreSQL.17 --accept-source-agreements --accept-package-agreements --override \"--unattendedmodeui none --mode unattended --superpassword zbrain2024 --serverport 5432 --servicename postgresql-17 --datadir C:\\\\PostgreSQL\\\\17\\\\data\" 2>&1)",
+      "PowerShell(winget install Docker.DockerDesktop --accept-source-agreements --accept-package-agreements 2>&1)",
+      "PowerShell($pgBin = \"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\"; $env:Path += \";$pgBin\"; $env:PGPASSWORD = \"zbrain2024\"; & \"$pgBin\\\\psql.exe\" -U postgres -c \"SELECT version\\(\\);\" 2>&1)",
+      "PowerShell($pgBin = \"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\"; $env:PGPASSWORD = \"zbrain2024\"; & \"$pgBin\\\\psql.exe\" -U postgres -c \"CREATE DATABASE zbrain;\" 2>&1)",
+      "PowerShell($pgBin = \"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\"; $env:PGPASSWORD = \"zbrain2024\"; & \"$pgBin\\\\psql.exe\" -U postgres -d zbrain -f \"C:\\\\Users\\\\G\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-G-Documents-z-image\\\\6255d683-e7df-4b58-9d24-ee72ce62b970\\\\scratchpad\\\\init_zbrain.sql\" 2>&1)",
+      "PowerShell(docker --version 2>&1)",
+      "PowerShell(Test-Path \"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\"; $env:Path += \";C:\\\\Program Files\\\\Docker\\\\Docker\\\\resources\\\\bin\"; docker --version 2>&1)",
+      "PowerShell(python --version 2>&1)",
+      "PowerShell(pip --version 2>&1)",
+      "PowerShell(pip install -r \"C:\\\\Users\\\\G\\\\Documents\\\\z-image\\\\backend\\\\requirements.txt\" 2>&1)",
+      "PowerShell(py -0p 2>&1)",
+      "PowerShell(py -3.12 --version)",
+      "PowerShell(& \"F:\\\\Python\\\\Python312\\\\python.exe\" -m pip --version 2>&1)",
+      "PowerShell(& \"F:\\\\Python\\\\Python312\\\\python.exe\" -m venv \"C:\\\\Users\\\\G\\\\Documents\\\\z-image\\\\backend\\\\.venv\")",
+      "PowerShell(& \"C:\\\\Users\\\\G\\\\Documents\\\\z-image\\\\backend\\\\.venv\\\\Scripts\\\\python.exe\" --version)",
+      "PowerShell($py = \"C:\\\\Users\\\\G\\\\Documents\\\\z-image\\\\backend\\\\.venv\\\\Scripts\\\\python.exe\"; & $py -m pip install --upgrade pip -q; & $py -m pip install -r \"C:\\\\Users\\\\G\\\\Documents\\\\z-image\\\\backend\\\\requirements.txt\" 2>&1 | Select-Object -Last 6)",
+      "PowerShell(gh --version 2>&1)",
+      "PowerShell(gh auth status 2>&1)",
+      "PowerShell(gh api user --jq .login 2>&1)"
+    ]
+  }
+}
