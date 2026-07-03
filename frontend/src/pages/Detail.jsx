@@ -14,6 +14,7 @@ export default function Detail() {
   const [editing, setEditing] = useState(false)
   const [zoom, setZoom] = useState(false)
   const [draft, setDraft] = useState({})
+  const [msg, setMsg] = useState('')
 
   useEffect(() => {
     api.getItem(id).then((it) => { setItem(it); setDraft(it) }).catch(() => setItem(false))
@@ -31,6 +32,30 @@ export default function Detail() {
     await api.softDelete(item.id)
     nav(-1)
   }
+  async function markReview() {
+    await api.review(item.id)
+    const fresh = await api.getItem(item.id)
+    setItem(fresh); setDraft(fresh)
+  }
+  async function digest() {
+    try {
+      if (item.granularity === 'fragment') {
+        await api.toNote(item.id)
+        setMsg('已存入收集箱 ✓')
+      } else {
+        await api.promote(item.id)
+        setMsg('已入脑 ✓')
+      }
+      const fresh = await api.getItem(item.id)
+      setItem(fresh); setDraft(fresh)
+    } catch (e) {
+      setMsg(e.status === 409 ? '请先标记已看' : '操作失败')
+    }
+  }
+
+  const reviewed = !!item.reviewed_at
+  const digested = !!item.promoted_at
+  const isFragment = item.granularity === 'fragment'
 
   return (
     <div className="page detail-page">
@@ -85,11 +110,26 @@ export default function Detail() {
         </div>
       )}
 
+      {msg && <div className="detail-msg">{msg}</div>}
+
+      {/* 消化状态 */}
+      <div className="detail-state">
+        <span className={reviewed ? 'st-on' : 'st-off'}>{reviewed ? '✓ 已看' : '○ 未看'}</span>
+        <span className={digested ? 'st-on' : 'st-off'}>
+          {digested ? (isFragment ? '✓ 已入收集箱' : '✓ 已入脑') : (isFragment ? '○ 未收集' : '○ 未入脑')}
+        </span>
+      </div>
+
       {/* 底部拇指热区操作 */}
       <div className="detail-actions">
         <button className="act" onClick={() => setEditing((v) => !v)}>{editing ? '取消' : '改标签'}</button>
-        <button className="act act-primary" disabled title="下一步开放">
-          {item.granularity === 'fragment' ? '存入收集箱' : '入脑'}
+        {!reviewed && <button className="act" onClick={markReview}>标记已看</button>}
+        <button
+          className="act act-primary"
+          onClick={digest}
+          disabled={digested || (!isFragment && !reviewed)}
+        >
+          {isFragment ? '存入收集箱' : '入脑'}
         </button>
         <button className="act act-danger" onClick={del}>删除</button>
       </div>

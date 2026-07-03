@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 
 from db import open_pool, close_pool, check_db
 from auth import require_token
-from routers import items, files, stats
+from routers import items, files, stats, feed, search
 from worker import start_worker, stop_worker, budget_status
 
 
@@ -35,6 +35,8 @@ app.add_middleware(
 app.include_router(items.router)
 app.include_router(files.router)
 app.include_router(stats.router)
+app.include_router(feed.router)
+app.include_router(search.router)
 
 
 @app.get("/api/health")

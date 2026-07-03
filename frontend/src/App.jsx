@@ -6,6 +6,7 @@ import Upload from './pages/Upload'
 import Browse from './pages/Browse'
 import Detail from './pages/Detail'
 import Trash from './pages/Trash'
+import Search from './pages/Search'
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/upload" element={<Upload />} />
             <Route path="/browse" element={<Browse />} />
+            <Route path="/search" element={<Search />} />
             <Route path="/item/:id" element={<Detail />} />
             <Route path="/trash" element={<Trash />} />
           </Routes>

@@ -72,4 +72,12 @@ export const api = {
   },
 
   dimensions: () => req('/stats/dimensions'),
+
+  // 消化闭环
+  review: (id) => req(`/items/${id}/review`, { method: 'PATCH' }),
+  promote: (id) => req(`/items/${id}/promote`, { method: 'PATCH' }),
+  toNote: (id) => req(`/items/${id}/to-note`, { method: 'POST' }),
+  resurface: (limit = 5) => req(`/feed/resurface?limit=${limit}`),
+  deleteNote: (id) => req(`/feed/notes/${id}/soft-delete`, { method: 'PATCH' }),
+  search: (q) => req(`/search?q=${encodeURIComponent(q)}`),
 }

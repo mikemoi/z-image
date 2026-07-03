@@ -52,7 +52,21 @@
       "Bash(curl -s http://127.0.0.1:8000/api/items -H 'Authorization: Bearer dev-token-change-me')",
       "Bash(python -c ' *)",
       "PowerShell(node --version 2>&1)",
-      "PowerShell(npm --version 2>&1)"
+      "PowerShell(npm --version 2>&1)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/health)",
+      "Bash(echo \"backend: $\\(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/health\\)\")",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5173/)",
+      "Bash(echo \"vite:    $\\(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5173/\\)\")",
+      "Bash(echo \"vite: $\\(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5173/\\)\")",
+      "Bash(curl -s -X PATCH http://127.0.0.1:8000/api/items/2/review -H 'Authorization: Bearer dev-token-change-me')",
+      "Bash(curl -s -X PATCH http://127.0.0.1:8000/api/items/2/promote -H 'Authorization: Bearer dev-token-change-me')",
+      "Bash(curl -s -X POST http://127.0.0.1:8000/api/items/1/to-note -H 'Authorization: Bearer dev-token-change-me')",
+      "Bash(curl -s -o /dev/null -w '%{http_code}\\\\n' -X PATCH http://127.0.0.1:8000/api/items/3/promote -H 'Authorization: Bearer dev-token-change-me')",
+      "Bash(curl -s http://127.0.0.1:8000/api/feed/resurface -H 'Authorization: Bearer dev-token-change-me')",
+      "Bash(curl -s http://127.0.0.1:8000/api/search?q=ADHD -H 'Authorization: Bearer dev-token-change-me')",
+      "Bash(python -c \"import sys,json;print\\('hits:',len\\(json.load\\(sys.stdin\\)\\)\\)\")",
+      "Bash(powershell -Command 'Get-CimInstance Win32_Process -Filter \"name='\\\\''node.exe'\\\\''\" | Where-Object { $_.CommandLine -like '\\\\''*vite*'\\\\'' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }')",
+      "Bash(echo \"vite stopped: $\\(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5173/\\)\")"
     ]
   }
 }

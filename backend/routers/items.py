@@ -15,7 +15,7 @@ from config import FILES_ROOT
 from worker import process_item
 from models.items import (
     UploadResult, ItemBrief, ItemDetail, ItemList, OkResult,
-    ItemUpdate, DimensionStats,
+    ItemUpdate, DimensionStats, PromoteResult, NoteResult,
 )
 
 router = APIRouter(prefix="/api/items", tags=["items"], dependencies=[Depends(require_token)])
@@ -28,6 +28,26 @@ def _ext_from_name(name: str) -> str:
     ext = Path(name or "").suffix.lower().lstrip(".")
     ext = "".join(c for c in ext if c.isalnum())
     return ext or "jpg"
+
+
+def _chunk(text: str, max_len: int = 1200) -> list[str]:
+    """初版切块:按空行分段;过长段再按句号软切。返回非空块列表。"""
+    paras = [p.strip() for p in (text or "").split("\n\n") if p.strip()]
+    chunks: list[str] = []
+    for p in paras:
+        if len(p) <= max_len:
+            chunks.append(p)
+            continue
+        buf = ""
+        for sentence in p.replace("。", "。\x00").split("\x00"):
+            if len(buf) + len(sentence) > max_len and buf:
+                chunks.append(buf.strip())
+                buf = sentence
+            else:
+                buf += sentence
+        if buf.strip():
+            chunks.append(buf.strip())
+    return chunks
 
 
 @router.post("/upload", response_model=UploadResult)
@@ -117,6 +137,136 @@ async def reprocess(item_id: int):
     if not r:
         raise HTTPException(404, "item not found")
     return OkResult()
+
+
+# ── 消化闭环:闸门一 review / 闸门二 入脑 / 碎片落箱 ──────────────────────────
+@router.patch("/{item_id}/review", response_model=OkResult)
+async def review(item_id: int):
+    """闸门一:标记已看。"""
+    with get_conn() as conn:
+        r = conn.execute(
+            """UPDATE image.items SET reviewed_at = now(), updated_at = now()
+               WHERE id = %s AND deleted_at IS NULL RETURNING id""",
+            (item_id,),
+        ).fetchone()
+        conn.commit()
+    if not r:
+        raise HTTPException(404, "item not found")
+    return OkResult()
+
+
+@router.patch("/{item_id}/promote", response_model=PromoteResult)
+async def promote(item_id: int):
+    """闸门二(knowledge 类):切块入 core.knowledge,挂 theme/use 标签。需先 review。"""
+    with get_conn() as conn:
+        item = conn.execute(
+            """SELECT id, file_id, title, summary, theme, use_tag, reviewed_at, promoted_at
+               FROM image.items WHERE id = %s AND deleted_at IS NULL""",
+            (item_id,),
+        ).fetchone()
+        if not item:
+            raise HTTPException(404, "item not found")
+        if not item["reviewed_at"]:
+            raise HTTPException(409, "需先标记已看(review)再入脑")
+        if item["promoted_at"]:
+            raise HTTPException(409, "已入脑,勿重复")
+
+        content = conn.execute(
+            """SELECT clean_text FROM image.contents
+               WHERE item_id = %s AND is_current = true
+               ORDER BY created_at DESC LIMIT 1""",
+            (item_id,),
+        ).fetchone()
+
+        # 有正文按段落切块;无正文(图解类)用 summary 单块
+        bodies = _chunk(content["clean_text"]) if content and content["clean_text"] else []
+        if not bodies and item["summary"]:
+            bodies = [item["summary"]]
+        if not bodies:
+            raise HTTPException(422, "没有可入脑的正文或摘要")
+
+        source_id = conn.execute(
+            """INSERT INTO core.sources (origin_schema, origin_table, origin_id)
+               VALUES ('image', 'files', %s) RETURNING id""",
+            (item["file_id"],),
+        ).fetchone()["id"]
+
+        # theme/use 标签(预置),取 id
+        tag_ids: list[int] = []
+        for name, kind in ((item["theme"], "theme"), (item["use_tag"], "use")):
+            if not name:
+                continue
+            row = conn.execute(
+                "SELECT id FROM core.tags WHERE name = %s AND kind = %s", (name, kind)
+            ).fetchone()
+            if row:
+                tag_ids.append(row["id"])
+
+        knowledge_ids: list[int] = []
+        for seq, body in enumerate(bodies):
+            kid = conn.execute(
+                """INSERT INTO core.knowledge (source_id, title, body, seq, summary)
+                   VALUES (%s, %s, %s, %s, %s) RETURNING id""",
+                (source_id, item["title"], body, seq, item["summary"]),
+            ).fetchone()["id"]
+            knowledge_ids.append(kid)
+            for tid in tag_ids:
+                conn.execute(
+                    """INSERT INTO core.knowledge_tags (knowledge_id, tag_id)
+                       VALUES (%s, %s) ON CONFLICT DO NOTHING""",
+                    (kid, tid),
+                )
+
+        conn.execute(
+            "UPDATE image.items SET promoted_at = now(), updated_at = now() WHERE id = %s",
+            (item_id,),
+        )
+        conn.commit()
+
+    return PromoteResult(knowledge_ids=knowledge_ids, count=len(knowledge_ids))
+
+
+@router.post("/{item_id}/to-note", response_model=NoteResult)
+async def to_note(item_id: int):
+    """碎片落箱(fragment 类):body 取 summary 或 clean_text,无第二道闸门。"""
+    with get_conn() as conn:
+        item = conn.execute(
+            "SELECT id, file_id, summary, use_tag FROM image.items WHERE id = %s AND deleted_at IS NULL",
+            (item_id,),
+        ).fetchone()
+        if not item:
+            raise HTTPException(404, "item not found")
+
+        body = item["summary"]
+        if not body:
+            c = conn.execute(
+                """SELECT clean_text FROM image.contents
+                   WHERE item_id = %s AND is_current = true
+                   ORDER BY created_at DESC LIMIT 1""",
+                (item_id,),
+            ).fetchone()
+            body = c["clean_text"] if c else None
+        if not body:
+            raise HTTPException(422, "没有可落箱的内容")
+
+        source_id = conn.execute(
+            """INSERT INTO core.sources (origin_schema, origin_table, origin_id)
+               VALUES ('image', 'files', %s) RETURNING id""",
+            (item["file_id"],),
+        ).fetchone()["id"]
+        note_id = conn.execute(
+            """INSERT INTO core.notes (source_id, body, use_tag)
+               VALUES (%s, %s, %s) RETURNING id""",
+            (source_id, body, item["use_tag"]),
+        ).fetchone()["id"]
+        # 落箱即视为消化过,标 promoted 便于前端区分
+        conn.execute(
+            "UPDATE image.items SET promoted_at = now(), updated_at = now() WHERE id = %s",
+            (item_id,),
+        )
+        conn.commit()
+
+    return NoteResult(note_id=note_id)
 
 
 @router.get("", response_model=ItemList)

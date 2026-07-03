@@ -80,6 +80,14 @@ input { font-family: inherit; font-size: 17px; }
   padding: 10px 12px; font-size: 14px; color: var(--ink-2);
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
+.note-card { position: relative; display: flex; flex-direction: column; }
+.resurface-note-body {
+  padding: 14px 14px 40px; font-size: 16px; color: var(--ink); line-height: 1.6;
+}
+.note-del {
+  position: absolute; bottom: 10px; right: 12px;
+  color: var(--ink-2); font-size: 13px; padding: 4px 10px;
+}
 
 /* ── dimension grid ─────────────────────────── */
 .dim-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
@@ -157,6 +165,16 @@ input { font-family: inherit; font-size: 17px; }
 .edit-box input {
   padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
 }
+
+.detail-msg {
+  background: var(--use-soft); color: var(--use); text-align: center;
+  padding: 10px; border-radius: 12px; margin: 12px 0; font-weight: 600;
+}
+.detail-state {
+  display: flex; gap: 16px; margin: 12px 2px; font-size: 14px;
+}
+.st-on { color: var(--use); font-weight: 600; }
+.st-off { color: var(--ink-2); }
 
 .detail-actions {
   position: sticky; bottom: calc(var(--tabbar-h) + var(--safe-b) + 8px);

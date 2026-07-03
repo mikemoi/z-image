@@ -54,5 +54,33 @@ class DimensionStats(BaseModel):
     uses: dict[str, int]
 
 
+class PromoteResult(BaseModel):
+    ok: bool = True
+    knowledge_ids: list[int]
+    count: int
+
+
+class NoteResult(BaseModel):
+    ok: bool = True
+    note_id: int
+
+
+class ResurfaceNote(BaseModel):
+    id: int
+    body: str
+    use_tag: str | None = None
+    checksum: str | None = None       # 来源图缩略,可空(手敲的没有)
+    last_seen_at: datetime | None = None
+
+
+class KnowledgeHit(BaseModel):
+    id: int
+    title: str | None = None
+    body: str
+    summary: str | None = None
+    checksum: str | None = None
+    created_at: datetime
+
+
 class OkResult(BaseModel):
     ok: bool = True

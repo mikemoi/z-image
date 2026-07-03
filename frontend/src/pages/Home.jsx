@@ -15,18 +15,29 @@ const THEMES = [
 export default function Home() {
   const nav = useNavigate()
   const [stats, setStats] = useState({ themes: {}, uses: {}, total: 0 })
+  const [notes, setNotes] = useState([])
   const [recent, setRecent] = useState([])
   const [q, setQ] = useState('')
 
   useEffect(() => {
     api.dimensions().then(setStats).catch(() => {})
-    // 重新遇见:notes 未做前,先用最近入库项占位
-    api.listItems({ status: 'ok', limit: 6 }).then((r) => setRecent(r.items)).catch(() => {})
+    // 重新遇见:优先真碎片;还没有 notes 时用最近入库项占位
+    api.resurface(6).then((ns) => {
+      setNotes(ns)
+      if (ns.length === 0) {
+        api.listItems({ status: 'ok', limit: 6 }).then((r) => setRecent(r.items)).catch(() => {})
+      }
+    }).catch(() => {})
   }, [])
+
+  async function delNote(id) {
+    await api.deleteNote(id)
+    setNotes((xs) => xs.filter((n) => n.id !== id))
+  }
 
   function search(e) {
     e.preventDefault()
-    if (q.trim()) nav(`/browse?q=${encodeURIComponent(q.trim())}`)
+    if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`)
   }
 
   return (
@@ -40,10 +51,20 @@ export default function Home() {
         />
       </form>
 
-      {/* 重新遇见(占位:最近入库) */}
+      {/* 重新遇见:真碎片优先,无则占位最近入库 */}
       <section className="resurface">
         <h2 className="section-h">重新遇见</h2>
-        {recent.length === 0 ? (
+        {notes.length > 0 ? (
+          <div className="resurface-row">
+            {notes.map((n) => (
+              <div key={n.id} className="resurface-card note-card">
+                {n.checksum && <Img checksum={n.checksum} className="resurface-thumb" />}
+                <div className="resurface-note-body">{n.body}</div>
+                <button className="note-del" onClick={() => delNote(n.id)}>删除</button>
+              </div>
+            ))}
+          </div>
+        ) : recent.length === 0 ? (
           <div className="empty-hint">还没有内容,去上传几张试试</div>
         ) : (
           <div className="resurface-row">
