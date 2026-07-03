@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from db import open_pool, close_pool, check_db
 from auth import require_token
+from routers import items, files
 
 
 @asynccontextmanager
@@ -23,6 +24,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+app.include_router(items.router)
+app.include_router(files.router)
 
 
 @app.get("/api/health")
