@@ -56,6 +56,7 @@ export default function Detail() {
   const reviewed = !!item.reviewed_at
   const digested = !!item.promoted_at
   const isFragment = item.granularity === 'fragment'
+  const isAsset = item.granularity === 'asset'
 
   return (
     <div className="page detail-page">
@@ -72,7 +73,7 @@ export default function Detail() {
       <div className="detail-tags">
         {item.theme && <span className="tag tag-theme">{THEME_LABEL[item.theme] || item.theme}</span>}
         {item.use_tag && <span className="tag tag-use">{item.use_tag}</span>}
-        {item.granularity && <span className="tag tag-gran">{item.granularity === 'knowledge' ? '知识' : '碎片'}</span>}
+        {item.granularity && <span className="tag tag-gran">{item.granularity === 'knowledge' ? '知识' : item.granularity === 'asset' ? '资料' : '碎片'}</span>}
         {item.status === 'review' && <span className="tag tag-review">待处理</span>}
       </div>
 
@@ -112,25 +113,31 @@ export default function Detail() {
 
       {msg && <div className="detail-msg">{msg}</div>}
 
-      {/* 消化状态 */}
-      <div className="detail-state">
-        <span className={reviewed ? 'st-on' : 'st-off'}>{reviewed ? '✓ 已看' : '○ 未看'}</span>
-        <span className={digested ? 'st-on' : 'st-off'}>
-          {digested ? (isFragment ? '✓ 已入收集箱' : '✓ 已入脑') : (isFragment ? '○ 未收集' : '○ 未入脑')}
-        </span>
-      </div>
+      {/* 消化状态(资料类不消化,仅存档) */}
+      {isAsset ? (
+        <div className="detail-state"><span className="st-off">资料 · 仅存档检索,不入脑</span></div>
+      ) : (
+        <div className="detail-state">
+          <span className={reviewed ? 'st-on' : 'st-off'}>{reviewed ? '✓ 已看' : '○ 未看'}</span>
+          <span className={digested ? 'st-on' : 'st-off'}>
+            {digested ? (isFragment ? '✓ 已入收集箱' : '✓ 已入脑') : (isFragment ? '○ 未收集' : '○ 未入脑')}
+          </span>
+        </div>
+      )}
 
       {/* 底部拇指热区操作 */}
       <div className="detail-actions">
         <button className="act" onClick={() => setEditing((v) => !v)}>{editing ? '取消' : '改标签'}</button>
-        {!reviewed && <button className="act" onClick={markReview}>标记已看</button>}
-        <button
-          className="act act-primary"
-          onClick={digest}
-          disabled={digested || (!isFragment && !reviewed)}
-        >
-          {isFragment ? '存入收集箱' : '入脑'}
-        </button>
+        {!isAsset && !reviewed && <button className="act" onClick={markReview}>标记已看</button>}
+        {!isAsset && (
+          <button
+            className="act act-primary"
+            onClick={digest}
+            disabled={digested || (!isFragment && !reviewed)}
+          >
+            {isFragment ? '存入收集箱' : '入脑'}
+          </button>
+        )}
         <button className="act act-danger" onClick={del}>删除</button>
       </div>
 

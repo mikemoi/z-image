@@ -72,6 +72,7 @@ export const api = {
   },
 
   dimensions: () => req('/stats/dimensions'),
+  workerStatus: () => req('/worker/status'),
 
   // 消化闭环
   review: (id) => req(`/items/${id}/review`, { method: 'PATCH' }),

@@ -160,12 +160,15 @@ async def promote(item_id: int):
     """闸门二(knowledge 类):切块入 core.knowledge,挂 theme/use 标签。需先 review。"""
     with get_conn() as conn:
         item = conn.execute(
-            """SELECT id, file_id, title, summary, theme, use_tag, reviewed_at, promoted_at
+            """SELECT id, file_id, title, summary, theme, use_tag, granularity,
+                      reviewed_at, promoted_at
                FROM image.items WHERE id = %s AND deleted_at IS NULL""",
             (item_id,),
         ).fetchone()
         if not item:
             raise HTTPException(404, "item not found")
+        if item["granularity"] == "asset":
+            raise HTTPException(422, "资料类不入脑,仅存档检索")
         if not item["reviewed_at"]:
             raise HTTPException(409, "需先标记已看(review)再入脑")
         if item["promoted_at"]:
@@ -231,11 +234,13 @@ async def to_note(item_id: int):
     """碎片落箱(fragment 类):body 取 summary 或 clean_text,无第二道闸门。"""
     with get_conn() as conn:
         item = conn.execute(
-            "SELECT id, file_id, summary, use_tag FROM image.items WHERE id = %s AND deleted_at IS NULL",
+            "SELECT id, file_id, summary, use_tag, granularity FROM image.items WHERE id = %s AND deleted_at IS NULL",
             (item_id,),
         ).fetchone()
         if not item:
             raise HTTPException(404, "item not found")
+        if item["granularity"] == "asset":
+            raise HTTPException(422, "资料类不进收集箱,仅存档检索")
 
         body = item["summary"]
         if not body:

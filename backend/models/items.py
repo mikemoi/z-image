@@ -50,6 +50,7 @@ class ItemUpdate(BaseModel):
 
 class DimensionStats(BaseModel):
     total: int
+    assets: int = 0                     # granularity='asset' 的资料数
     themes: dict[str, int]
     uses: dict[str, int]
 

@@ -18,6 +18,7 @@ export default function Home() {
   const [notes, setNotes] = useState([])
   const [recent, setRecent] = useState([])
   const [q, setQ] = useState('')
+  const [working, setWorking] = useState(false)
 
   useEffect(() => {
     api.dimensions().then(setStats).catch(() => {})
@@ -28,6 +29,22 @@ export default function Home() {
         api.listItems({ status: 'ok', limit: 6 }).then((r) => setRecent(r.items)).catch(() => {})
       }
     }).catch(() => {})
+  }, [])
+
+  // 处理进度:只看"在不在整理"这个状态,不显示"还剩几张"。整理中时刷新维度计数。
+  useEffect(() => {
+    let alive = true
+    async function tick() {
+      try {
+        const s = await api.workerStatus()
+        if (!alive) return
+        setWorking(s.working)
+        if (s.working) api.dimensions().then(setStats).catch(() => {})
+      } catch { /* ignore */ }
+    }
+    tick()
+    const t = setInterval(tick, 4000)
+    return () => { alive = false; clearInterval(t) }
   }, [])
 
   async function delNote(id) {
@@ -50,6 +67,25 @@ export default function Home() {
           autoCapitalize="off"
         />
       </form>
+
+      {/* 处理状态:只显示"在不在整理",不显示待办数字 */}
+      {working && (
+        <div className="worker-chip">
+          <span className="worker-dot" /> AI 正在后台整理…
+        </div>
+      )}
+
+      {/* 全部 / 资料 快捷入口 */}
+      <div className="quick-row">
+        <button className="quick-btn" onClick={() => nav('/browse')}>
+          <span className="quick-name">全部</span>
+          <span className="quick-count">{stats.total || 0}</span>
+        </button>
+        <button className="quick-btn" onClick={() => nav('/browse?granularity=asset')}>
+          <span className="quick-name">资料</span>
+          <span className="quick-count">{stats.assets || 0}</span>
+        </button>
+      </div>
 
       {/* 重新遇见:真碎片优先,无则占位最近入库 */}
       <section className="resurface">

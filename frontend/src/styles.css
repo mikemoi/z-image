@@ -69,6 +69,27 @@ input { font-family: inherit; font-size: 17px; }
   border: 1px solid var(--line); background: var(--surface);
 }
 
+/* ── worker chip(处理中,不显示数字) ─────────────────────────── */
+.worker-chip {
+  display: flex; align-items: center; gap: 8px; margin: 12px 2px 4px;
+  font-size: 14px; color: var(--use);
+}
+.worker-dot {
+  width: 9px; height: 9px; border-radius: 50%; background: var(--use);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
+
+/* ── 全部 / 资料 快捷入口 ─────────────────────────── */
+.quick-row { display: flex; gap: 12px; margin: 14px 0 4px; }
+.quick-btn {
+  flex: 1; background: var(--surface); border-radius: var(--radius);
+  padding: 16px; display: flex; align-items: baseline; justify-content: space-between;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+}
+.quick-name { font-size: 17px; font-weight: 600; }
+.quick-count { font-size: 15px; color: var(--ink-2); }
+
 /* ── resurface ─────────────────────────── */
 .resurface-row { display: flex; gap: 12px; overflow-x: auto; padding: 4px; scroll-snap-type: x mandatory; }
 .resurface-card {
@@ -214,7 +235,8 @@ input { font-family: inherit; font-size: 17px; }
   font-size: 44px; display: flex; align-items: center; justify-content: center;
 }
 .upload-big { font-size: 26px; font-weight: 700; }
-.upload-sub { color: var(--ink-2); margin-bottom: 12px; }
+.upload-sub { color: var(--ink-2); margin-bottom: 4px; }
+.upload-note { color: var(--use); font-size: 14px; margin-bottom: 12px; }
 
 /* ── image states ─────────────────────────── */
 .img-skeleton { background: linear-gradient(90deg,#eee,#f6f6f6,#eee); min-height: 120px; }

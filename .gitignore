@@ -8,6 +8,9 @@ venv/
 .env
 backend/.env
 
+# Claude Code 本机设置(会记录命令历史,可能含密钥,不入库)
+.claude/settings.local.json
+
 # 原文件磁盘存储(可能是唯一副本,单独备份,不入 git)
 data/
 

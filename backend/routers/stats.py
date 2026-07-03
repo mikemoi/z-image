@@ -15,6 +15,9 @@ async def dimensions():
         total = conn.execute(
             "SELECT count(*) AS c FROM image.items WHERE deleted_at IS NULL"
         ).fetchone()["c"]
+        assets = conn.execute(
+            "SELECT count(*) AS c FROM image.items WHERE deleted_at IS NULL AND granularity = 'asset'"
+        ).fetchone()["c"]
         theme_rows = conn.execute(
             """SELECT theme, count(*) AS c FROM image.items
                WHERE deleted_at IS NULL AND theme IS NOT NULL
@@ -28,6 +31,7 @@ async def dimensions():
 
     return DimensionStats(
         total=total,
+        assets=assets,
         themes={r["theme"]: r["c"] for r in theme_rows},
         uses={r["use_tag"]: r["c"] for r in use_rows},
     )

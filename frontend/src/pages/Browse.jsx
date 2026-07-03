@@ -18,18 +18,20 @@ export default function Browse() {
   const nav = useNavigate()
   const theme = sp.get('theme') || ''
   const use = sp.get('use') || ''
+  const granularity = sp.get('granularity') || ''
   const q = sp.get('q') || ''
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
 
   function load() {
     setLoading(true)
-    api.listItems({ theme, use, status: 'ok', limit: 200 })
+    // 不强制 status=ok:全部/维度视图都能带出未分类的(靠"待处理"标签自然区分)
+    api.listItems({ theme, use, granularity, limit: 200 })
       .then((r) => setItems(r.items))
       .catch(() => setItems([]))
       .finally(() => setLoading(false))
   }
-  useEffect(load, [theme, use])
+  useEffect(load, [theme, use, granularity])
 
   function toggle(kind, val) {
     const next = new URLSearchParams(sp)

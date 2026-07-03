@@ -37,8 +37,32 @@ async def _take_budget() -> bool:
         return True
 
 
+def pending_count() -> int:
+    """还没处理完的候选数(仅内部/调试用,前端只用 working 布尔,不展示此数字)。"""
+    try:
+        with get_conn() as conn:
+            return conn.execute(
+                """SELECT count(*) AS c
+                   FROM image.items i
+                   WHERE i.status = 'review' AND i.deleted_at IS NULL
+                     AND (i.ai_output IS NULL
+                          OR (i.ai_output ? '_error'
+                              AND COALESCE((i.ai_output->>'_attempts')::int, 0) < %s))""",
+                (VISION_MAX_ATTEMPTS,),
+            ).fetchone()["c"]
+    except Exception:
+        return 0
+
+
 def budget_status() -> dict:
-    return {"date": str(_budget_date), "used": _budget_used, "limit": VISION_DAILY_BUDGET}
+    n = pending_count()
+    return {
+        "date": str(_budget_date),
+        "used": _budget_used,
+        "limit": VISION_DAILY_BUDGET,
+        "pending": n,        # 调试用;UI 不展示数字
+        "working": n > 0,    # UI 只用这个:AI 是否在整理
+    }
 
 
 # ── 取候选 ───────────────────────────────────────────────────────────────────

@@ -52,6 +52,7 @@ export default function Upload() {
           <div className="upload-check">✓</div>
           <div className="upload-big">已接收 {result.received} 张</div>
           <div className="upload-sub">手机可清空,现在就去删掉相册里的原图</div>
+          <div className="upload-note">AI 会在后台慢慢整理,不用等,回头首页看就好</div>
           <button className="btn-primary" onClick={() => setResult(null)}>
             再传一批
           </button>
