@@ -1,14 +1,43 @@
-# 上服务器时用。本地已直接用宿主机 PostgreSQL + uvicorn,无需 compose。
-# 假设服务器上 PostgreSQL 已单独运行,这里只跑后端,连外部 PG。
+# 服务器一键部署:PostgreSQL(自动建库)+ 后端(内含前端 dist,单端口)。
+# 用法:
+#   1. cp .env.example .env  并改掉 POSTGRES_PASSWORD / AUTH_TOKEN / OPENROUTER_API_KEY
+#   2. docker compose up -d --build
+#   3. 访问 http://<服务器IP>:8000
+# 已有外部 PG?删掉 db 服务,把 DATABASE_URL 指向你的 PG,并手动跑一次 deploy/init.sql。
 services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: zbrain
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/init.sql:/docker-entrypoint-initdb.d/init.sql:ro   # 仅首次启动执行
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d zbrain"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   backend:
-    build: ./backend
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "8000:8000"
-    env_file:
-      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/zbrain
+      AUTH_TOKEN: ${AUTH_TOKEN}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      VISION_MODEL: ${VISION_MODEL:-openai/gpt-4.1-mini}
+      VISION_DAILY_BUDGET: ${VISION_DAILY_BUDGET:-500}
+      FILES_ROOT: /data/zbrain/files
     volumes:
-      - /data/zbrain/files:/app/data/zbrain/files
+      - /data/zbrain/files:/data/zbrain/files   # 原图落宿主机,记得单独备份(可能是唯一副本)
     restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+
+volumes:
+  pgdata:
