@@ -15,6 +15,7 @@ from config import FILES_ROOT
 from worker import process_item
 from models.items import (
     UploadResult, ItemBrief, ItemDetail, ItemList, OkResult,
+    ItemUpdate, DimensionStats,
 )
 
 router = APIRouter(prefix="/api/items", tags=["items"], dependencies=[Depends(require_token)])
@@ -187,6 +188,29 @@ async def get_item(item_id: int):
         clean_text=content["clean_text"] if content else None,
         raw_text=content["raw_text"] if content else None,
     )
+
+
+_UPDATABLE = {"title", "theme", "use_tag", "status", "granularity"}
+
+
+@router.patch("/{item_id}", response_model=ItemDetail)
+async def update_item(item_id: int, patch: ItemUpdate):
+    """改标签:更新 title/theme/use_tag/status/granularity 中传入的字段。"""
+    fields = {k: v for k, v in patch.model_dump(exclude_unset=True).items() if k in _UPDATABLE}
+    if not fields:
+        raise HTTPException(400, "no updatable fields provided")
+    sets = ", ".join(f"{k} = %s" for k in fields)
+    params = list(fields.values()) + [item_id]
+    with get_conn() as conn:
+        r = conn.execute(
+            f"""UPDATE image.items SET {sets}, updated_at = now()
+                WHERE id = %s AND deleted_at IS NULL RETURNING id""",
+            params,
+        ).fetchone()
+        conn.commit()
+    if not r:
+        raise HTTPException(404, "item not found")
+    return await get_item(item_id)
 
 
 @router.patch("/{item_id}/soft-delete", response_model=OkResult)

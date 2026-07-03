@@ -1,0 +1,104 @@
+import { useEffect, useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { api } from '../api'
+import Img from '../components/Img'
+
+const THEMES = ['trading', 'ai', 'adhd', 'language', 'life', 'other']
+const THEME_LABEL = { trading: '交易', ai: 'AI', adhd: 'ADHD', language: '语言', life: '生活', other: '其他' }
+const USES = ['方法', '避坑', '心态', '工具', '灵感']
+
+export default function Detail() {
+  const { id } = useParams()
+  const nav = useNavigate()
+  const [item, setItem] = useState(null)
+  const [editing, setEditing] = useState(false)
+  const [zoom, setZoom] = useState(false)
+  const [draft, setDraft] = useState({})
+
+  useEffect(() => {
+    api.getItem(id).then((it) => { setItem(it); setDraft(it) }).catch(() => setItem(false))
+  }, [id])
+
+  if (item === false) return <div className="page"><div className="empty-hint">条目不存在</div></div>
+  if (!item) return <div className="page"><div className="empty-hint">加载中…</div></div>
+
+  async function saveTags() {
+    const patch = { title: draft.title, theme: draft.theme, use_tag: draft.use_tag }
+    const updated = await api.updateItem(item.id, patch)
+    setItem(updated); setDraft(updated); setEditing(false)
+  }
+  async function del() {
+    await api.softDelete(item.id)
+    nav(-1)
+  }
+
+  return (
+    <div className="page detail-page">
+      <div className="detail-head">
+        <button className="back" onClick={() => nav(-1)}>‹ 返回</button>
+      </div>
+
+      <div className="detail-img" onClick={() => setZoom(true)}>
+        <Img checksum={item.checksum} alt={item.title || ''} className="detail-img-el" />
+      </div>
+
+      {item.title && <h1 className="detail-title">{item.title}</h1>}
+
+      <div className="detail-tags">
+        {item.theme && <span className="tag tag-theme">{THEME_LABEL[item.theme] || item.theme}</span>}
+        {item.use_tag && <span className="tag tag-use">{item.use_tag}</span>}
+        {item.granularity && <span className="tag tag-gran">{item.granularity === 'knowledge' ? '知识' : '碎片'}</span>}
+        {item.status === 'review' && <span className="tag tag-review">待处理</span>}
+      </div>
+
+      {item.summary && (
+        <div className="detail-block">
+          <div className="block-h">摘要</div>
+          <div className="block-text">{item.summary}</div>
+        </div>
+      )}
+
+      {item.clean_text && (
+        <div className="detail-block">
+          <div className="block-h">正文</div>
+          <div className="block-text pre">{item.clean_text}</div>
+        </div>
+      )}
+
+      {editing && (
+        <div className="edit-box">
+          <label>标题</label>
+          <input value={draft.title || ''} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+          <label>主题</label>
+          <div className="chips">
+            {THEMES.map((t) => (
+              <button key={t} className={`chip ${draft.theme === t ? 'chip-on' : ''}`} onClick={() => setDraft({ ...draft, theme: t })}>{THEME_LABEL[t]}</button>
+            ))}
+          </div>
+          <label>用途</label>
+          <div className="chips">
+            {USES.map((u) => (
+              <button key={u} className={`chip ${draft.use_tag === u ? 'chip-on' : ''}`} onClick={() => setDraft({ ...draft, use_tag: u })}>{u}</button>
+            ))}
+          </div>
+          <button className="btn-primary" onClick={saveTags}>保存</button>
+        </div>
+      )}
+
+      {/* 底部拇指热区操作 */}
+      <div className="detail-actions">
+        <button className="act" onClick={() => setEditing((v) => !v)}>{editing ? '取消' : '改标签'}</button>
+        <button className="act act-primary" disabled title="下一步开放">
+          {item.granularity === 'fragment' ? '存入收集箱' : '入脑'}
+        </button>
+        <button className="act act-danger" onClick={del}>删除</button>
+      </div>
+
+      {zoom && (
+        <div className="zoom-overlay" onClick={() => setZoom(false)}>
+          <Img checksum={item.checksum} className="zoom-img" />
+        </div>
+      )}
+    </div>
+  )
+}

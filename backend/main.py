@@ -1,11 +1,14 @@
-"""zbrain 后端入口。第一步只做地基:健康检查 + 鉴权。"""
+"""zbrain 后端入口。API + 后台 worker + 可选挂载前端 dist。"""
+from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from db import open_pool, close_pool, check_db
 from auth import require_token
-from routers import items, files
+from routers import items, files, stats
 from worker import start_worker, stop_worker, budget_status
 
 
@@ -31,6 +34,7 @@ app.add_middleware(
 
 app.include_router(items.router)
 app.include_router(files.router)
+app.include_router(stats.router)
 
 
 @app.get("/api/health")
@@ -49,3 +53,17 @@ async def whoami(_: bool = Depends(require_token)):
 async def worker_status(_: bool = Depends(require_token)):
     """当日 Vision 预算使用情况。"""
     return budget_status()
+
+
+# ── 挂载前端 dist(存在才挂;API 路由已在上面注册,优先匹配) ──────────────────
+_DIST = Path(__file__).parent.parent / "frontend" / "dist"
+if _DIST.exists():
+    app.mount("/assets", StaticFiles(directory=_DIST / "assets"), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def spa(full_path: str):
+        """静态文件直出;其余路径回退 index.html 交给前端路由。"""
+        candidate = _DIST / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(_DIST / "index.html")

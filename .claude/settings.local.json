@@ -47,7 +47,12 @@
       "PowerShell($py = \"C:\\\\Users\\\\G\\\\Documents\\\\z-image\\\\backend\\\\.venv\\\\Scripts\\\\python.exe\"; Set-Location \"C:\\\\Users\\\\G\\\\Documents\\\\z-image\\\\backend\"; $env:WORKER_POLL_SECONDS = \"2\"; & $py -m uvicorn main:app --host 127.0.0.1 --port 8000)",
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('status:',d['status']\\); print\\('theme:',d['theme']\\); print\\('use:',d['use_tag']\\); print\\('granularity:',d['granularity']\\); print\\('summary:',d['summary']\\)\")",
       "Bash(curl -s http://127.0.0.1:8000/api/worker/status -H 'Authorization: Bearer dev-token-change-me')",
-      "Bash(powershell -Command 'Get-CimInstance Win32_Process -Filter \"name='\\\\''python.exe'\\\\''\" | Where-Object { $_.CommandLine -like '\\\\''*uvicorn*'\\\\'' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }')"
+      "Bash(powershell -Command 'Get-CimInstance Win32_Process -Filter \"name='\\\\''python.exe'\\\\''\" | Where-Object { $_.CommandLine -like '\\\\''*uvicorn*'\\\\'' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }')",
+      "Bash(curl -s -X POST http://127.0.0.1:8000/api/items/upload -H 'Authorization: Bearer dev-token-change-me' -F images=@C:/Users/G/.claude/uploads/6255d683-e7df-4b58-9d24-ee72ce62b970/486ed5a8-IMG_9790.jpeg -F images=@C:/Users/G/.claude/uploads/6255d683-e7df-4b58-9d24-ee72ce62b970/d341a4e2-IMG_9732.jpeg -F images=@C:/Users/G/.claude/uploads/6255d683-e7df-4b58-9d24-ee72ce62b970/126a1fb1-IMG_9662.jpeg -F images=@C:/Users/G/.claude/uploads/6255d683-e7df-4b58-9d24-ee72ce62b970/23ee5939-IMG_9614.jpeg)",
+      "Bash(curl -s http://127.0.0.1:8000/api/items -H 'Authorization: Bearer dev-token-change-me')",
+      "Bash(python -c ' *)",
+      "PowerShell(node --version 2>&1)",
+      "PowerShell(npm --version 2>&1)"
     ]
   }
 }

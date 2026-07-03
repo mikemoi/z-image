@@ -39,5 +39,20 @@ class ItemList(BaseModel):
     items: list[ItemBrief]
 
 
+class ItemUpdate(BaseModel):
+    """改标签:所有字段可选,只更新传入的。"""
+    title: str | None = None
+    theme: str | None = None
+    use_tag: str | None = None
+    status: str | None = None
+    granularity: str | None = None
+
+
+class DimensionStats(BaseModel):
+    total: int
+    themes: dict[str, int]
+    uses: dict[str, int]
+
+
 class OkResult(BaseModel):
     ok: bool = True
