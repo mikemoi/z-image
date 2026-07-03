@@ -8,11 +8,11 @@ import hashlib
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query
-from psycopg.types.json import Jsonb
 
 from auth import require_token
 from db import get_conn
 from config import FILES_ROOT
+from worker import process_item
 from models.items import (
     UploadResult, ItemBrief, ItemDetail, ItemList, OkResult,
 )
@@ -78,6 +78,44 @@ async def upload(images: list[UploadFile] = File(...)):
         conn.commit()
 
     return UploadResult(received=received, message=f"已接收 {received} 张,手机可清空")
+
+
+@router.post("/{item_id}/process", response_model=ItemDetail)
+async def process_now(item_id: int):
+    """同步跑一遍 Vision 处理(测试/调试用),完成后返回详情。"""
+    with get_conn() as conn:
+        row = conn.execute(
+            """SELECT i.id, f.file_path FROM image.items i
+               JOIN image.files f ON f.id = i.file_id
+               WHERE i.id = %s AND i.deleted_at IS NULL""",
+            (item_id,),
+        ).fetchone()
+    if not row:
+        raise HTTPException(404, "item not found")
+    ok = await process_item(item_id, row["file_path"])
+    if not ok:
+        raise HTTPException(502, "vision processing failed, item left in review")
+    return await get_item(item_id)
+
+
+@router.post("/{item_id}/reprocess", response_model=OkResult)
+async def reprocess(item_id: int):
+    """清掉旧结果、重置为待处理,让后台 worker 再跑一次。"""
+    with get_conn() as conn:
+        r = conn.execute(
+            """UPDATE image.items
+               SET status='review', ai_output=NULL, title=NULL, summary=NULL,
+                   theme=NULL, use_tag=NULL, granularity=NULL,
+                   is_ocr_suitable=false, reviewed_at=NULL, updated_at=now()
+               WHERE id=%s AND deleted_at IS NULL RETURNING id""",
+            (item_id,),
+        ).fetchone()
+        if r:
+            conn.execute("DELETE FROM image.contents WHERE item_id=%s", (item_id,))
+        conn.commit()
+    if not r:
+        raise HTTPException(404, "item not found")
+    return OkResult()
 
 
 @router.get("", response_model=ItemList)

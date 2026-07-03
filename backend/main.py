@@ -6,12 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from db import open_pool, close_pool, check_db
 from auth import require_token
 from routers import items, files
+from worker import start_worker, stop_worker, budget_status
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     open_pool()
+    start_worker()
     yield
+    await stop_worker()
     close_pool()
 
 
@@ -40,3 +43,9 @@ async def health():
 async def whoami(_: bool = Depends(require_token)):
     """需鉴权:验证 token 通路。"""
     return {"status": "ok", "authenticated": True}
+
+
+@app.get("/api/worker/status")
+async def worker_status(_: bool = Depends(require_token)):
+    """当日 Vision 预算使用情况。"""
+    return budget_status()
