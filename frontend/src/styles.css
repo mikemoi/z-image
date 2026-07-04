@@ -220,7 +220,9 @@ input { font-family: inherit; font-size: 17px; }
   width: 100%; padding: 13px; border-radius: 12px;
   background: var(--accent-soft); color: var(--accent);
   font-size: 16px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
 }
+.ai-ask-ico { display: block; }
 .ai-ask:disabled { opacity: .5; }
 .ai-card {
   background: var(--surface); border: 1px dashed var(--accent);
@@ -311,7 +313,7 @@ input { font-family: inherit; font-size: 17px; }
   padding: 14px; box-shadow: var(--shadow);
   border-left: 3px solid #e6b800;
 }
-.plan-pin { font-size: 18px; }
+.plan-pin { color: #d9a200; display: block; flex-shrink: 0; }
 .plan-body { font-size: 15px; font-weight: 500; }
 
 .clean-row { display: flex; gap: 12px; }
@@ -327,7 +329,7 @@ input { font-family: inherit; font-size: 17px; }
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   box-shadow: var(--shadow);
 }
-.en-ico { font-size: 22px; line-height: 1; }
+.en-ico { color: var(--accent); display: block; }
 .en-label { font-size: 15px; font-weight: 600; }
 
 /* ── 统一小按钮:次级(浅底描边)/ 强调(实心) ─────────────────────────── */
@@ -359,6 +361,7 @@ input { font-family: inherit; font-size: 17px; }
   gap: 10px; font-size: 22px; font-weight: 600; color: var(--accent);
 }
 .upload-drop:disabled { opacity: .6; }
+.upload-cta { display: inline-flex; align-items: center; gap: 8px; }
 .upload-hint { font-size: 14px; color: var(--ink-2); font-weight: 400; }
 .upload-done { text-align: center; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .upload-check {
@@ -394,7 +397,8 @@ input { font-family: inherit; font-size: 17px; }
 .tab-label { font-size: 12px; }
 .tab-primary .tab-plus {
   width: 46px; height: 46px; border-radius: 50%; background: var(--accent); color: #fff;
-  font-size: 28px; display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   margin-top: -18px; box-shadow: 0 3px 12px rgba(47,111,95,.45);
 }
+.tab-icon { display: block; }
 .tab-primary.active .tab-plus { background: var(--accent); }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import Img from '../components/Img'
+import Icon from '../components/Icon'
 
 const USES = ['避坑', '心态', '方法', '工具', '灵感']
 const THEMES = [
@@ -82,7 +83,7 @@ export default function Home() {
         <section className="plans">
           {plans.map((p) => (
             <div key={p.id} className="plan-card" onClick={() => nav('/logs')}>
-              <span className="plan-pin">📌</span>
+              <Icon name="flag" size={18} className="plan-pin" />
               <span className="plan-body">{p.body}</span>
             </div>
           ))}
@@ -104,13 +105,13 @@ export default function Home() {
       {/* 文字入口:记 / 日志 / 待整理 */}
       <div className="entry-row">
         <button className="entry-nav" onClick={() => nav('/capture')}>
-          <span className="en-ico">✎</span><span className="en-label">记一条</span>
+          <Icon name="pen" size={22} className="en-ico" /><span className="en-label">记一条</span>
         </button>
         <button className="entry-nav" onClick={() => nav('/logs')}>
-          <span className="en-ico">📔</span><span className="en-label">日志</span>
+          <Icon name="book" size={22} className="en-ico" /><span className="en-label">日志</span>
         </button>
         <button className="entry-nav" onClick={() => nav('/inbox')}>
-          <span className="en-ico">📥</span><span className="en-label">待整理</span>
+          <Icon name="inbox" size={22} className="en-ico" /><span className="en-label">待整理</span>
         </button>
       </div>
 

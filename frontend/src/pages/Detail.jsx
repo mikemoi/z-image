@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import Img from '../components/Img'
+import Icon from '../components/Icon'
 
 const THEMES = ['trading', 'ai', 'adhd', 'language', 'life', 'other']
 const THEME_LABEL = { trading: '交易', ai: 'AI', adhd: 'ADHD', language: '语言', life: '生活', other: '其他' }
@@ -116,7 +117,7 @@ export default function Detail() {
       <div className="ai-block">
         {!insight && (
           <button className="ai-ask" onClick={() => ask(false)} disabled={asking}>
-            {asking ? '正在想…' : '💡 问问 AI'}
+            {asking ? '正在想…' : <><Icon name="spark" size={18} className="ai-ask-ico" />问问 AI</>}
           </button>
         )}
         {insight && (

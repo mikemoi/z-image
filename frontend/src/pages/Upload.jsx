@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { api } from '../api'
+import Icon from '../components/Icon'
 
 // 清空节奏:选图→上传→大字"已接收 N 张,手机可清空"。不显示待处理计数。
 export default function Upload() {
@@ -42,7 +43,7 @@ export default function Upload() {
           onClick={() => inputRef.current?.click()}
           disabled={busy}
         >
-          {busy ? '上传中…' : '＋ 从相册选图'}
+          {busy ? '上传中…' : <span className="upload-cta"><Icon name="plus" size={26} stroke={2.2} />从相册选图</span>}
           <span className="upload-hint">支持多选,上传即走</span>
         </button>
       )}
