@@ -61,9 +61,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),
     }),
-  softDelete: (id) => req(`/items/${id}/soft-delete`, { method: 'PATCH' }),
-  restore: (id) => req(`/items/${id}/restore`, { method: 'POST' }),
-  purge: (id) => req(`/items/${id}/purge`, { method: 'DELETE' }),
+  deleteItem: (id) => req(`/items/${id}/purge`, { method: 'DELETE' }),   // 永久删(含磁盘原图)
 
   uploadItems: (files) => {
     const fd = new FormData()
@@ -132,5 +130,14 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ target }),
     }),
-  deleteEntry: (id) => req(`/entries/${id}/soft-delete`, { method: 'PATCH' }),
+  deleteEntry: (id) => req(`/entries/${id}`, { method: 'DELETE' }),
+
+  // 设置:OCR / 问问AI 模型切换
+  getSettings: () => req('/settings'),
+  putSettings: (patch) =>
+    req('/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }),
 }

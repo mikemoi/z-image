@@ -15,6 +15,7 @@ from db import get_conn
 from config import FILES_ROOT
 from worker import process_item
 from vision import call_insight
+from settings_store import insight_model
 from models.items import (
     UploadResult, ItemBrief, ItemDetail, ItemList, OkResult,
     ItemUpdate, DimensionStats, PromoteResult, NoteResult,
@@ -176,7 +177,7 @@ async def insight(item_id: int, refresh: bool = Query(default=False)):
         "clean_text": content["clean_text"] if content else None,
     }
     try:
-        result = await call_insight(row["file_path"], context, existing)
+        result = await call_insight(row["file_path"], context, existing, model=insight_model())
     except Exception as e:  # noqa: BLE001 —— 外部调用失败直接告知,不缓存
         raise HTTPException(502, f"AI 调用失败: {e}")
 

@@ -35,12 +35,10 @@ async def resurface(limit: int = Query(default=5, le=20)):
 
 @router.patch("/notes/{note_id}/soft-delete", response_model=OkResult)
 async def delete_note(note_id: int):
-    """当场删掉这条碎片,以后不再遇见。"""
+    """永久删掉这条碎片(无回收站),以后不再遇见。"""
     with get_conn() as conn:
         r = conn.execute(
-            """UPDATE core.notes SET deleted_at = now()
-               WHERE id = %s AND deleted_at IS NULL RETURNING id""",
-            (note_id,),
+            "DELETE FROM core.notes WHERE id = %s RETURNING id", (note_id,)
         ).fetchone()
         conn.commit()
     if not r:

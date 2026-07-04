@@ -80,6 +80,13 @@ CREATE INDEX IF NOT EXISTS idx_entries_status  ON core.entries (status);
 CREATE INDEX IF NOT EXISTS idx_entries_logged  ON core.entries (logged_for);
 CREATE INDEX IF NOT EXISTS idx_entries_deleted ON core.entries (deleted_at);
 
+-- v0.3 通用设置(kv):现用于 OCR / 问问AI 模型切换
+CREATE TABLE IF NOT EXISTS core.settings (
+    key        TEXT PRIMARY KEY,
+    value      TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ── image:z-image 入口 ───────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS image.files (

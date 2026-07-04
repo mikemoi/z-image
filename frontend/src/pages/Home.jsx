@@ -18,13 +18,11 @@ export default function Home() {
   const [stats, setStats] = useState({ themes: {}, uses: {}, total: 0 })
   const [notes, setNotes] = useState([])
   const [recent, setRecent] = useState([])
-  const [plans, setPlans] = useState([])
   const [q, setQ] = useState('')
   const [working, setWorking] = useState(false)
 
   useEffect(() => {
     api.dimensions().then(setStats).catch(() => {})
-    api.plans().then(setPlans).catch(() => {})
     // 重新遇见:优先真碎片;还没有 notes 时用最近入库项占位
     api.resurface(6).then((ns) => {
       setNotes(ns)
@@ -76,18 +74,6 @@ export default function Home() {
         <div className="worker-chip">
           <span className="worker-dot" /> AI 正在后台整理…
         </div>
-      )}
-
-      {/* 计划钉住:北极星,常驻不沉底 */}
-      {plans.length > 0 && (
-        <section className="plans">
-          {plans.map((p) => (
-            <div key={p.id} className="plan-card" onClick={() => nav('/logs')}>
-              <Icon name="flag" size={18} className="plan-pin" />
-              <span className="plan-body">{p.body}</span>
-            </div>
-          ))}
-        </section>
       )}
 
       {/* 全部 / 资料 快捷入口 */}
@@ -166,11 +152,6 @@ export default function Home() {
           ))}
         </div>
       </section>
-
-      {/* 清库:提纯入口,主动才点,不显眼、不催 */}
-      <div className="home-foot">
-        <button className="text-link" onClick={() => nav('/cleanup')}>清库 · 清掉没信息量的</button>
-      </div>
     </div>
   )
 }

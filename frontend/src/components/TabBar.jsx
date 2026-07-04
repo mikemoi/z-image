@@ -9,17 +9,17 @@ export default function TabBar() {
         <Icon name="home" className="tab-icon" />
         <span className="tab-label">首页</span>
       </NavLink>
-      <NavLink to="/upload" className="tab tab-primary">
-        <span className="tab-plus"><Icon name="plus" size={26} stroke={2.2} /></span>
+      <NavLink to="/upload" className="tab">
+        <Icon name="image" className="tab-icon" />
         <span className="tab-label">上传</span>
       </NavLink>
       <NavLink to="/capture" className="tab">
         <Icon name="pen" className="tab-icon" />
-        <span className="tab-label">记</span>
+        <span className="tab-label">记录</span>
       </NavLink>
-      <NavLink to="/trash" className="tab">
-        <Icon name="trash" className="tab-icon" />
-        <span className="tab-label">回收站</span>
+      <NavLink to="/me" className="tab">
+        <Icon name="user" className="tab-icon" />
+        <span className="tab-label">我的</span>
       </NavLink>
     </nav>
   )

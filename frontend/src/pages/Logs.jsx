@@ -10,6 +10,11 @@ function fmt(d) {
   const dt = new Date(d)
   return `${dt.getFullYear()}.${String(dt.getMonth() + 1).padStart(2, '0')}.${String(dt.getDate()).padStart(2, '0')}`
 }
+function ftime(ts) {
+  if (!ts) return ''
+  const dt = new Date(ts)
+  return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`
+}
 
 export default function Logs() {
   const nav = useNavigate()
@@ -69,7 +74,7 @@ export default function Logs() {
           <h2 className="section-h">往年今天</h2>
           {past.map((e) => (
             <div key={e.id} className="log-item log-past">
-              <div className="log-date">{fmt(e.logged_for)} {e.mood || ''}</div>
+              <div className="log-date">{fmt(e.logged_for)} {ftime(e.created_at)} {e.mood || ''}</div>
               <div className="entry-body">{e.body}</div>
             </div>
           ))}
@@ -85,7 +90,7 @@ export default function Logs() {
         <div className="log-list">
           {logs.map((e) => (
             <div key={e.id} className="log-item">
-              <div className="log-date">{fmt(e.logged_for)} {e.mood || ''}
+              <div className="log-date">{fmt(e.logged_for)} {ftime(e.created_at)} {e.mood || ''}
                 <button className="log-del" onClick={() => del(e)}>删</button>
               </div>
               <div className="entry-body">{e.body}</div>

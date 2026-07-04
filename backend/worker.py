@@ -14,6 +14,7 @@ from psycopg.types.json import Jsonb
 from db import get_conn
 from vision import call_vision
 from clean import clean_text
+from settings_store import ocr_model
 from config import VISION_DAILY_BUDGET, VISION_MAX_ATTEMPTS, WORKER_POLL_SECONDS
 
 log = logging.getLogger("zbrain.worker")
@@ -31,7 +32,8 @@ async def _take_budget() -> bool:
         today = date.today()
         if today != _budget_date:
             _budget_date, _budget_used = today, 0
-        if _budget_used >= VISION_DAILY_BUDGET:
+        # 预算 <= 0 视为不限制(仍累加计数,供「我的」显示当日调用数)
+        if VISION_DAILY_BUDGET > 0 and _budget_used >= VISION_DAILY_BUDGET:
             return False
         _budget_used += 1
         return True
@@ -60,6 +62,7 @@ def budget_status() -> dict:
         "date": str(_budget_date),
         "used": _budget_used,
         "limit": VISION_DAILY_BUDGET,
+        "unlimited": VISION_DAILY_BUDGET <= 0,
         "pending": n,        # 调试用;UI 不展示数字
         "working": n > 0,    # UI 只用这个:AI 是否在整理
     }
@@ -90,7 +93,7 @@ def _fetch_eligible(limit: int) -> list[dict]:
 async def process_item(item_id: int, file_path: str) -> bool:
     """处理一个 item。成功 True(status→ok),失败 False(留 review + 记 _attempts)。"""
     try:
-        result = await call_vision(file_path)
+        result = await call_vision(file_path, model=ocr_model())
     except Exception as e:  # noqa: BLE001 —— 外部调用兜底,不阻塞
         log.warning("vision failed for item %s: %s", item_id, e)
         _record_failure(item_id, str(e))

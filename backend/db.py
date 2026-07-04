@@ -47,6 +47,13 @@ def ensure_schema():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_status  ON core.entries (status)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_logged  ON core.entries (logged_for)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_deleted ON core.entries (deleted_at)")
+        # v0.3 设置:通用 kv(现用于 OCR/问问AI 模型切换,以后阈值/主题等也可放这)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS core.settings (
+                key        TEXT PRIMARY KEY,
+                value      TEXT,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )""")
         conn.commit()
 
 

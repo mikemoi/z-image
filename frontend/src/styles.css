@@ -332,6 +332,34 @@ input { font-family: inherit; font-size: 17px; }
 .en-ico { color: var(--accent); display: block; }
 .en-label { font-size: 15px; font-weight: 600; }
 
+/* ── 我的(Me) ─────────────────────────── */
+.me-card {
+  background: var(--surface); border-radius: var(--radius); padding: 16px;
+  box-shadow: var(--shadow); margin-bottom: 6px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.me-row { display: flex; align-items: center; justify-content: space-between; font-size: 15px; }
+.me-strong { font-weight: 700; font-size: 17px; }
+.me-dim { color: var(--ink-2); }
+.me-label { font-size: 13px; color: var(--ink-2); margin-top: 4px; }
+.me-input {
+  width: 100%; padding: 11px 12px; border: 1px solid var(--line);
+  border-radius: 12px; background: var(--bg); font-size: 15px;
+}
+.me-hint { font-size: 13px; color: var(--ink-2); }
+.me-save {
+  align-self: flex-start; background: var(--accent); color: #fff;
+  font-weight: 600; padding: 10px 20px; border-radius: 12px; font-size: 15px;
+}
+.me-list { display: flex; flex-direction: column; gap: 10px; }
+.me-item {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  background: var(--surface); border-radius: var(--radius); padding: 15px 16px;
+  box-shadow: var(--shadow); font-size: 16px; text-align: left;
+}
+.me-ico { color: var(--accent); flex-shrink: 0; }
+.me-arrow { margin-left: auto; color: var(--ink-2); font-size: 20px; }
+
 /* ── 统一小按钮:次级(浅底描边)/ 强调(实心) ─────────────────────────── */
 .mini, .grow-no {
   background: var(--bg); border: 1px solid var(--line); border-radius: 12px;

@@ -204,29 +204,14 @@ async def file_entry(entry_id: int, body: FileEntry):
     return FileResult(target=body.target, count=count)
 
 
-@router.patch("/{entry_id}/soft-delete", response_model=OkResult)
-async def soft_delete(entry_id: int):
+@router.delete("/{entry_id}", response_model=OkResult)
+async def delete_entry(entry_id: int):
+    """永久删除(无回收站):点了就删,确定不要了才删。"""
     with get_conn() as conn:
         r = conn.execute(
-            """UPDATE core.entries SET deleted_at = now(), updated_at = now()
-               WHERE id = %s AND deleted_at IS NULL RETURNING id""",
-            (entry_id,),
+            "DELETE FROM core.entries WHERE id = %s RETURNING id", (entry_id,)
         ).fetchone()
         conn.commit()
     if not r:
-        raise HTTPException(404, "entry not found or already deleted")
-    return OkResult()
-
-
-@router.post("/{entry_id}/restore", response_model=OkResult)
-async def restore(entry_id: int):
-    with get_conn() as conn:
-        r = conn.execute(
-            """UPDATE core.entries SET deleted_at = NULL, updated_at = now()
-               WHERE id = %s AND deleted_at IS NOT NULL RETURNING id""",
-            (entry_id,),
-        ).fetchone()
-        conn.commit()
-    if not r:
-        raise HTTPException(404, "entry not found in trash")
+        raise HTTPException(404, "entry not found")
     return OkResult()

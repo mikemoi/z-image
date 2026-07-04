@@ -104,8 +104,9 @@ def normalize(raw: dict) -> dict:
     }
 
 
-async def _chat_image(prompt: str, file_path: str, temperature: float = 0.0) -> str:
-    """把 prompt + 原图发给 OpenRouter,返回模型文本。任何失败抛异常。"""
+async def _chat_image(prompt: str, file_path: str, model: str | None = None,
+                      temperature: float = 0.0) -> str:
+    """把 prompt + 原图发给 OpenRouter,返回模型文本。model 缺省用 VISION_MODEL。任何失败抛异常。"""
     if not OPENROUTER_API_KEY:
         raise RuntimeError("OPENROUTER_API_KEY 未配置")
 
@@ -114,7 +115,7 @@ async def _chat_image(prompt: str, file_path: str, temperature: float = 0.0) -> 
     data_uri = f"data:{_mime_for(file_path)};base64,{b64}"
 
     payload = {
-        "model": VISION_MODEL,
+        "model": model or VISION_MODEL,
         "messages": [{
             "role": "user",
             "content": [
@@ -140,9 +141,9 @@ async def _chat_image(prompt: str, file_path: str, temperature: float = 0.0) -> 
     return body["choices"][0]["message"]["content"]
 
 
-async def call_vision(file_path: str) -> dict:
-    """把原图发给 OpenRouter,返回规整后的 dict。任何失败抛异常。"""
-    content = await _chat_image(PROMPT, file_path, temperature=0)
+async def call_vision(file_path: str, model: str | None = None) -> dict:
+    """把原图发给 OpenRouter(自动处理),返回规整后的 dict。任何失败抛异常。"""
+    content = await _chat_image(PROMPT, file_path, model=model, temperature=0)
     parsed = normalize(parse_json(content))
     parsed["_raw_content"] = content  # 存进 ai_output 备查
     return parsed
@@ -186,7 +187,8 @@ def normalize_insight(raw: dict) -> dict:
     }
 
 
-async def call_insight(file_path: str, context: dict, existing_themes: list[str]) -> dict:
+async def call_insight(file_path: str, context: dict, existing_themes: list[str],
+                       model: str | None = None) -> dict:
     """按需生成看法。context: {title, summary, clean_text};existing_themes: 现有主题名列表。"""
     lines = []
     if context.get("title"):
@@ -197,5 +199,5 @@ async def call_insight(file_path: str, context: dict, existing_themes: list[str]
         lines.append(f"正文:{context['clean_text'][:2000]}")
     ctx = "\n".join(lines) or "(没有已提取的文字,主要看图判断)"
     prompt = INSIGHT_PROMPT.format(context=ctx, themes="、".join(existing_themes) or "(无)")
-    content = await _chat_image(prompt, file_path, temperature=0.3)
+    content = await _chat_image(prompt, file_path, model=model, temperature=0.3)
     return normalize_insight(parse_json(content))
