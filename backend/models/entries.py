@@ -2,15 +2,16 @@
 from datetime import date, datetime
 from pydantic import BaseModel
 
-KINDS = {"note", "log", "plan", "clip"}
+KINDS = {"idea", "log", "plan"}        # 想法 / 日志 / 计划(去掉速记、剪藏并入想法)
 
 
 class EntryCreate(BaseModel):
-    kind: str = "note"                 # note速记 | log日志 | plan计划 | clip剪藏
+    kind: str = "idea"                 # idea想法 | log日志 | plan计划
     body: str
     mood: str | None = None            # 日志可选心情
     logged_for: date | None = None     # 日志:事情发生的日期,缺省=今天
     pinned: bool = False               # 计划钉住
+    source_item_id: int | None = None  # 想法来自哪张截图(可空=凭空记的)
 
 
 class EntryUpdate(BaseModel):
@@ -29,6 +30,8 @@ class Entry(BaseModel):
     mood: str | None = None
     pinned: bool = False
     logged_for: date | None = None
+    source_item_id: int | None = None
+    checksum: str | None = None        # 想法来源截图缩略(ideas 列表用)
     created_at: datetime
     updated_at: datetime
 

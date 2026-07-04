@@ -4,17 +4,15 @@ import { api } from '../api'
 
 // 记一条:零摩擦捕捉。速记/日志/计划/剪藏共用,写完就走。
 const KINDS = [
-  { key: 'note', label: '速记', hint: '随手一个想法,以后再整理' },
   { key: 'log', label: '日志', hint: '今天怎么样?写完就走' },
   { key: 'plan', label: '计划', hint: '五年/十年计划,钉在眼前' },
-  { key: 'clip', label: '剪藏', hint: '从 AI/别处看到的有用内容' },
 ]
 const MOODS = ['😞', '😕', '😐', '🙂', '😄']
 
 export default function Capture() {
   const nav = useNavigate()
   const [sp] = useSearchParams()
-  const [kind, setKind] = useState(sp.get('kind') || 'note')
+  const [kind, setKind] = useState(sp.get('kind') || 'log')
   const [body, setBody] = useState('')
   const [mood, setMood] = useState('')
   const [msg, setMsg] = useState('')
@@ -78,7 +76,6 @@ export default function Capture() {
       </div>
 
       <div className="capture-links">
-        <button className="text-link" onClick={() => nav('/inbox')}>待整理 →</button>
         <button className="text-link" onClick={() => nav('/logs')}>日志时间线 →</button>
       </div>
     </div>

@@ -114,7 +114,7 @@ export const api = {
     Object.entries(params).forEach(([k, v]) => { if (v) s.set(k, v) })
     return req(`/entries?${s.toString()}`)
   },
-  inbox: () => req('/entries/inbox'),
+  ideas: () => req('/entries/ideas'),
   plans: () => req('/entries/plans'),
   logs: () => req('/entries/logs'),
   onThisDay: () => req('/entries/logs/on-this-day'),

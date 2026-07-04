@@ -88,16 +88,13 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 文字入口:记 / 日志 / 待整理 */}
+      {/* 文字入口:想法 / 日志 */}
       <div className="entry-row">
-        <button className="entry-nav" onClick={() => nav('/capture')}>
-          <Icon name="pen" size={22} className="en-ico" /><span className="en-label">记一条</span>
+        <button className="entry-nav" onClick={() => nav('/ideas')}>
+          <Icon name="bulb" size={22} className="en-ico" /><span className="en-label">想法</span>
         </button>
         <button className="entry-nav" onClick={() => nav('/logs')}>
           <Icon name="book" size={22} className="en-ico" /><span className="en-label">日志</span>
-        </button>
-        <button className="entry-nav" onClick={() => nav('/inbox')}>
-          <Icon name="inbox" size={22} className="en-ico" /><span className="en-label">待整理</span>
         </button>
       </div>
 

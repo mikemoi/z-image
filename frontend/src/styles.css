@@ -255,6 +255,11 @@ input { font-family: inherit; font-size: 17px; }
 
 .card-snippet { font-size: 13px; color: var(--ink-2); margin-top: 4px; }
 
+/* 想法卡的来源截图 */
+.idea-foot { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.idea-src { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
+.idea-thumb { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; background: var(--line); }
+
 /* ── 生长的分类:偶遇冒泡(不催办) ─────────────────────────── */
 .grow-card {
   display: flex; align-items: center; gap: 12px;

@@ -38,8 +38,8 @@ def _chunk(text: str, max_len: int = 1200) -> list[str]:
 
 @router.post("", response_model=Entry)
 async def create_entry(payload: EntryCreate):
-    """记一条。日志缺省日期=今天;计划默认钉住、并视为已归位(常驻,不进待整理)。"""
-    kind = payload.kind if payload.kind in KINDS else "note"
+    """记一条(想法/日志/计划)。全部直接入流,无"待整理";想法可带来源截图。"""
+    kind = payload.kind if payload.kind in KINDS else "idea"
     body = (payload.body or "").strip()
     if not body:
         raise HTTPException(400, "body 不能为空")
@@ -48,18 +48,32 @@ async def create_entry(payload: EntryCreate):
     if kind == "log" and logged_for is None:
         logged_for = date.today()
     pinned = payload.pinned or (kind == "plan")
-    # 计划/日志不需要"待整理";速记/剪藏进 inbox 等消化
-    status = "filed" if kind in ("plan", "log") else "inbox"
-
     with get_conn() as conn:
         row = conn.execute(
-            """INSERT INTO core.entries (kind, body, status, mood, pinned, logged_for)
-               VALUES (%s, %s, %s, %s, %s, %s)
-               RETURNING id, kind, body, status, mood, pinned, logged_for, created_at, updated_at""",
-            (kind, body, status, payload.mood, pinned, logged_for),
+            """INSERT INTO core.entries (kind, body, status, mood, pinned, logged_for, source_item_id)
+               VALUES (%s, %s, 'filed', %s, %s, %s, %s)
+               RETURNING id, kind, body, status, mood, pinned, logged_for, source_item_id,
+                         created_at, updated_at""",
+            (kind, body, payload.mood, pinned, logged_for, payload.source_item_id),
         ).fetchone()
         conn.commit()
     return Entry(**row)
+
+
+@router.get("/ideas", response_model=list[Entry])
+async def ideas():
+    """想法流:汇聚所有想法,带来源截图缩略(凭空记的没有)。你的"思维镜子"。"""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT e.id, e.kind, e.body, e.status, e.mood, e.pinned, e.logged_for,
+                      e.source_item_id, f.checksum, e.created_at, e.updated_at
+               FROM core.entries e
+               LEFT JOIN image.items i ON i.id = e.source_item_id
+               LEFT JOIN image.files f ON f.id = i.file_id
+               WHERE e.deleted_at IS NULL AND e.kind = 'idea'
+               ORDER BY e.created_at DESC""",
+        ).fetchall()
+    return [Entry(**r) for r in rows]
 
 
 @router.get("", response_model=list[Entry])

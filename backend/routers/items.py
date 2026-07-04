@@ -269,10 +269,8 @@ async def promote(item_id: int):
             raise HTTPException(404, "item not found")
         if item["granularity"] == "asset":
             raise HTTPException(422, "资料类不入脑,仅存档检索")
-        if not item["reviewed_at"]:
-            raise HTTPException(409, "需先标记已看(review)再入脑")
         if item["promoted_at"]:
-            raise HTTPException(409, "已入脑,勿重复")
+            raise HTTPException(409, "已精选,勿重复")
 
         content = conn.execute(
             """SELECT clean_text FROM image.contents

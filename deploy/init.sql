@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS core.entries (
     mood       TEXT,                                -- 日志可选心情
     pinned     BOOLEAN NOT NULL DEFAULT false,      -- 计划钉住
     logged_for DATE,                                -- 日志:事情发生的日期
+    source_item_id BIGINT,                          -- 想法来自哪张截图(可空)
     deleted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

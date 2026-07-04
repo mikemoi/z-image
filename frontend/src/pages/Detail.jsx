@@ -18,6 +18,7 @@ export default function Detail() {
   const [msg, setMsg] = useState('')
   const [insight, setInsight] = useState(null)
   const [asking, setAsking] = useState(false)
+  const [idea, setIdea] = useState('')
 
   useEffect(() => {
     setInsight(null)
@@ -51,28 +52,28 @@ export default function Detail() {
     setItem(updated); setDraft(updated); setEditing(false)
   }
   async function del() {
-    await api.softDelete(item.id)
+    await api.deleteItem(item.id)
     nav(-1)
   }
-  async function markReview() {
+  async function keep() {   // 留下:留档,标记已处理
     await api.review(item.id)
     const fresh = await api.getItem(item.id)
     setItem(fresh); setDraft(fresh)
+    setMsg('已留下 ✓')
   }
-  async function digest() {
+  async function pick() {   // 精选:入脑
     try {
-      if (item.granularity === 'fragment') {
-        await api.toNote(item.id)
-        setMsg('已存入收集箱 ✓')
-      } else {
-        await api.promote(item.id)
-        setMsg('已入脑 ✓')
-      }
+      if (item.granularity === 'fragment') await api.toNote(item.id)
+      else await api.promote(item.id)
       const fresh = await api.getItem(item.id)
       setItem(fresh); setDraft(fresh)
-    } catch (e) {
-      setMsg(e.status === 409 ? '请先标记已看' : '操作失败')
-    }
+      setMsg('已精选 ✓')
+    } catch { setMsg('操作失败') }
+  }
+  async function saveIdea() {
+    if (!idea.trim()) return
+    await api.createEntry({ kind: 'idea', body: idea.trim(), source_item_id: item.id })
+    setIdea(''); setMsg('想法记下了 ✓'); setTimeout(() => setMsg(''), 1800)
   }
 
   const reviewed = !!item.reviewed_at
@@ -168,33 +169,22 @@ export default function Detail() {
         </div>
       )}
 
+      {/* 我的想法:看这张图产生的思考,存进想法流(挂上来源截图) */}
+      <div className="detail-block">
+        <div className="block-h">我的想法</div>
+        <textarea className="capture-input" rows={3} value={idea}
+          onChange={(e) => setIdea(e.target.value)}
+          placeholder="看到这张图,你想到了什么?" />
+        <button className="me-save" style={{ marginTop: 8 }} onClick={saveIdea} disabled={!idea.trim()}>记下想法</button>
+      </div>
+
       {msg && <div className="detail-msg">{msg}</div>}
 
-      {/* 消化状态(资料类不消化,仅存档) */}
-      {isAsset ? (
-        <div className="detail-state"><span className="st-off">资料 · 仅存档检索,不入脑</span></div>
-      ) : (
-        <div className="detail-state">
-          <span className={reviewed ? 'st-on' : 'st-off'}>{reviewed ? '✓ 已看' : '○ 未看'}</span>
-          <span className={digested ? 'st-on' : 'st-off'}>
-            {digested ? (isFragment ? '✓ 已入收集箱' : '✓ 已入脑') : (isFragment ? '○ 未收集' : '○ 未入脑')}
-          </span>
-        </div>
-      )}
-
-      {/* 底部拇指热区操作 */}
+      {/* 底部操作:标签 / 留下 / 精选 / 删除 */}
       <div className="detail-actions">
-        <button className="act" onClick={() => setEditing((v) => !v)}>{editing ? '取消' : '改标签'}</button>
-        {!isAsset && !reviewed && <button className="act" onClick={markReview}>标记已看</button>}
-        {!isAsset && (
-          <button
-            className="act act-primary"
-            onClick={digest}
-            disabled={digested || (!isFragment && !reviewed)}
-          >
-            {isFragment ? '存入收集箱' : '入脑'}
-          </button>
-        )}
+        <button className="act" onClick={() => setEditing((v) => !v)}>{editing ? '取消' : '标签'}</button>
+        {!isAsset && <button className="act" onClick={keep} disabled={reviewed}>{reviewed ? '已留下' : '留下'}</button>}
+        {!isAsset && <button className="act act-primary" onClick={pick} disabled={digested}>{digested ? '已精选' : '精选'}</button>}
         <button className="act act-danger" onClick={del}>删除</button>
       </div>
 

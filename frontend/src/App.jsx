@@ -7,9 +7,8 @@ import Browse from './pages/Browse'
 import Detail from './pages/Detail'
 import Search from './pages/Search'
 import Capture from './pages/Capture'
-import Inbox from './pages/Inbox'
 import Logs from './pages/Logs'
-import Cleanup from './pages/Cleanup'
+import Ideas from './pages/Ideas'
 import Me from './pages/Me'
 import Plans from './pages/Plans'
 
@@ -25,9 +24,8 @@ export default function App() {
             <Route path="/search" element={<Search />} />
             <Route path="/item/:id" element={<Detail />} />
             <Route path="/capture" element={<Capture />} />
-            <Route path="/inbox" element={<Inbox />} />
             <Route path="/logs" element={<Logs />} />
-            <Route path="/cleanup" element={<Cleanup />} />
+            <Route path="/ideas" element={<Ideas />} />
             <Route path="/me" element={<Me />} />
             <Route path="/plans" element={<Plans />} />
           </Routes>

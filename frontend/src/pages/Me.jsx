@@ -70,17 +70,6 @@ export default function Me() {
         {msg && <div className="detail-msg">{msg}</div>}
       </div>
 
-      {/* 管理入口 */}
-      <h2 className="section-h">管理</h2>
-      <div className="me-list">
-        <button className="me-item" onClick={() => nav('/plans')}>
-          <Icon name="flag" size={20} className="me-ico" /><span>计划</span><span className="me-arrow">›</span>
-        </button>
-        <button className="me-item" onClick={() => nav('/cleanup')}>
-          <Icon name="spark" size={20} className="me-ico" /><span>清库 · 清掉没信息量的</span><span className="me-arrow">›</span>
-        </button>
-      </div>
-
       <div className="home-foot">
         <button className="text-link" onClick={logout}>退出登录</button>
       </div>

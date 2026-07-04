@@ -13,8 +13,12 @@ export default function TabBar() {
         <Icon name="image" className="tab-icon" />
         <span className="tab-label">上传</span>
       </NavLink>
-      <NavLink to="/capture" className="tab">
-        <Icon name="pen" className="tab-icon" />
+      <NavLink to="/ideas" className="tab">
+        <Icon name="bulb" className="tab-icon" />
+        <span className="tab-label">想法</span>
+      </NavLink>
+      <NavLink to="/logs" className="tab">
+        <Icon name="book" className="tab-icon" />
         <span className="tab-label">记录</span>
       </NavLink>
       <NavLink to="/me" className="tab">

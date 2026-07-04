@@ -48,6 +48,7 @@ export default function Logs() {
     <div className="page">
       <div className="browse-head">
         <button className="back" onClick={() => nav('/')}>‹ 首页</button>
+        <button className="text-link" onClick={() => nav('/plans')}>计划 →</button>
       </div>
       <h1 className="page-title">日志</h1>
 
