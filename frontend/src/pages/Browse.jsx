@@ -22,6 +22,8 @@ export default function Browse() {
   const q = sp.get('q') || ''
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
+  const [candidate, setCandidate] = useState(null)
+  const [growMsg, setGrowMsg] = useState('')
 
   function load() {
     setLoading(true)
@@ -32,6 +34,27 @@ export default function Browse() {
       .finally(() => setLoading(false))
   }
   useEffect(load, [theme, use, granularity])
+
+  // 生长的分类:偶遇不催办——攒够一簇才冒一次,忽略过的本地记住、不再冒
+  useEffect(() => {
+    api.themeCandidates(3).then((cands) => {
+      const dismissed = JSON.parse(localStorage.getItem('zbrain_dismissed_themes') || '[]')
+      const top = cands.find((c) => !dismissed.includes(c.name))
+      setCandidate(top || null)
+    }).catch(() => {})
+  }, [])
+
+  async function adoptCandidate() {
+    const r = await api.adoptThemeCluster(candidate.name)
+    setGrowMsg(`已建「${candidate.name}」· 归入 ${r.count} 条 ✓`)
+    setCandidate(null)
+    load()
+  }
+  function dismissCandidate() {
+    const dismissed = JSON.parse(localStorage.getItem('zbrain_dismissed_themes') || '[]')
+    localStorage.setItem('zbrain_dismissed_themes', JSON.stringify([...dismissed, candidate.name]))
+    setCandidate(null)
+  }
 
   function toggle(kind, val) {
     const next = new URLSearchParams(sp)
@@ -56,6 +79,20 @@ export default function Browse() {
         <button className="back" onClick={() => nav('/')}>‹ 首页</button>
         {q && <span className="browse-q">搜索:{q}</span>}
       </div>
+
+      {growMsg && <div className="detail-msg">{growMsg}</div>}
+      {candidate && (
+        <div className="grow-card">
+          <div className="grow-text">
+            发现一簇「<b>{candidate.name}</b>」· {candidate.count} 条
+            <span className="grow-sub">现有分类装不下它,建个新的?</span>
+          </div>
+          <div className="grow-acts">
+            <button className="grow-yes" onClick={adoptCandidate}>建</button>
+            <button className="grow-no" onClick={dismissCandidate}>忽略</button>
+          </div>
+        </div>
+      )}
 
       <div className="chips">
         {USES.map((u) => (

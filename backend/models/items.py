@@ -108,5 +108,18 @@ class AdoptTheme(BaseModel):
     theme: str
 
 
+class ThemeCandidate(BaseModel):
+    """自动线攒出的新分类候选:一簇被 AI 判为同一新领域的条目。"""
+    name: str
+    count: int
+
+
+class AdoptClusterResult(BaseModel):
+    """批量采纳一簇候选:建 tag + 把整簇条目归入。"""
+    ok: bool = True
+    theme: str
+    count: int
+
+
 class OkResult(BaseModel):
     ok: bool = True

@@ -91,4 +91,13 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ theme }),
     }),
+
+  // 生长的分类:自动攒出的新分类候选 + 批量采纳一簇
+  themeCandidates: (min = 3) => req(`/stats/theme-candidates?min=${min}`),
+  adoptThemeCluster: (theme) =>
+    req('/stats/theme-candidates/adopt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ theme }),
+    }),
 }
