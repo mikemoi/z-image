@@ -278,46 +278,62 @@ input { font-family: inherit; font-size: 17px; }
 .capture-links { display: flex; gap: 16px; margin-top: 24px; justify-content: center; }
 
 .entry-card {
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 14px; margin-bottom: 12px;
+  background: var(--surface); border-radius: var(--radius);
+  padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06);
 }
-.entry-top { margin-bottom: 6px; }
+.entry-top { margin-bottom: 8px; }
 .entry-kind {
-  display: inline-block; font-size: 12px; font-weight: 700; color: var(--theme);
-  background: var(--theme-soft); padding: 2px 8px; border-radius: 8px;
+  display: inline-block; font-size: 13px; padding: 3px 10px;
+  border-radius: 20px; font-weight: 500; color: var(--theme); background: var(--theme-soft);
 }
 .entry-body { font-size: 16px; line-height: 1.6; white-space: pre-wrap; }
-.entry-acts { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-.mini {
-  background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
-  padding: 7px 12px; font-size: 14px; font-weight: 500;
-}
-.mini-danger { color: var(--danger); }
+.entry-acts { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
 
 .log-compose { margin-bottom: 20px; }
 .log-list, .onthisday { margin-top: 4px; }
 .log-item {
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;
+  background: var(--surface); border-radius: var(--radius);
+  padding: 12px 14px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.06);
 }
-.log-past { background: var(--accent-soft); border-color: var(--accent); }
+.log-past { background: var(--accent-soft); box-shadow: none; }
 .log-date { font-size: 13px; color: var(--ink-2); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
 .log-del { margin-left: auto; color: var(--danger); font-size: 13px; }
 
 .plans { margin: 4px 2px 14px; display: flex; flex-direction: column; gap: 8px; }
 .plan-card {
   display: flex; align-items: center; gap: 10px;
-  background: #fffdf2; border: 1px solid #e9dfa8; border-radius: var(--radius);
-  padding: 12px 14px;
+  background: var(--surface); border-radius: var(--radius);
+  padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  border-left: 3px solid #e6b800;
 }
 .plan-pin { font-size: 18px; }
 .plan-body { font-size: 15px; font-weight: 500; }
 
 .clean-row { display: flex; gap: 12px; }
-.clean-thumb { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; flex-shrink: 0; }
+.clean-thumb { width: 56px; height: 56px; border-radius: 12px; object-fit: cover; flex-shrink: 0; background: var(--line); }
 .clean-body { flex: 1; min-width: 0; }
 .clean-note { font-size: 13px; color: var(--ink-2); margin-top: 4px; font-style: italic; }
 .home-foot { text-align: center; margin: 28px 0 8px; }
+
+/* 文字入口三连(首页):带图标、居中,和 quick-row 区分 */
+.entry-row { display: flex; gap: 12px; margin: 12px 0 4px; }
+.entry-nav {
+  flex: 1; background: var(--surface); border-radius: var(--radius); padding: 14px 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+}
+.en-ico { font-size: 22px; line-height: 1; }
+.en-label { font-size: 15px; font-weight: 600; }
+
+/* ── 统一小按钮:次级(浅底描边)/ 强调(实心) ─────────────────────────── */
+.mini, .grow-no {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+  padding: 8px 14px; font-size: 14px; font-weight: 500;
+}
+.mini-danger { color: var(--danger); }
+.grow-yes, .ai-adopt, .log-save {
+  border-radius: 12px; padding: 8px 16px; font-size: 14px; font-weight: 600; color: #fff;
+}
 
 /* ── trash ─────────────────────────── */
 .trash-actions { display: flex; gap: 10px; padding: 0 14px 14px; }

@@ -102,15 +102,15 @@ export default function Home() {
       </div>
 
       {/* 文字入口:记 / 日志 / 待整理 */}
-      <div className="quick-row">
-        <button className="quick-btn" onClick={() => nav('/capture')}>
-          <span className="quick-name">✎ 记一条</span>
+      <div className="entry-row">
+        <button className="entry-nav" onClick={() => nav('/capture')}>
+          <span className="en-ico">✎</span><span className="en-label">记一条</span>
         </button>
-        <button className="quick-btn" onClick={() => nav('/logs')}>
-          <span className="quick-name">日志</span>
+        <button className="entry-nav" onClick={() => nav('/logs')}>
+          <span className="en-ico">📔</span><span className="en-label">日志</span>
         </button>
-        <button className="quick-btn" onClick={() => nav('/inbox')}>
-          <span className="quick-name">待整理</span>
+        <button className="entry-nav" onClick={() => nav('/inbox')}>
+          <span className="en-ico">📥</span><span className="en-label">待整理</span>
         </button>
       </div>
 
