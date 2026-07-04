@@ -100,4 +100,37 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ theme }),
     }),
+
+  // 清库仪式:AI 判为无信息量的
+  cleanupSuggestions: () => req('/items/cleanup'),
+
+  // 文字入口:速记 / 日志 / 计划 / 剪藏(core.entries)
+  createEntry: (payload) =>
+    req('/entries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  listEntries: (params = {}) => {
+    const s = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => { if (v) s.set(k, v) })
+    return req(`/entries?${s.toString()}`)
+  },
+  inbox: () => req('/entries/inbox'),
+  plans: () => req('/entries/plans'),
+  logs: () => req('/entries/logs'),
+  onThisDay: () => req('/entries/logs/on-this-day'),
+  updateEntry: (id, patch) =>
+    req(`/entries/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }),
+  fileEntry: (id, target) =>
+    req(`/entries/${id}/file`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target }),
+    }),
+  deleteEntry: (id) => req(`/entries/${id}/soft-delete`, { method: 'PATCH' }),
 }

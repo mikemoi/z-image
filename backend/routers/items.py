@@ -20,6 +20,7 @@ from models.items import (
     ItemUpdate, DimensionStats, PromoteResult, NoteResult,
     InsightResult, AdoptTheme,
 )
+from models.entries import CleanupItem
 
 router = APIRouter(prefix="/api/items", tags=["items"], dependencies=[Depends(require_token)])
 
@@ -215,6 +216,26 @@ async def adopt_theme(item_id: int, body: AdoptTheme):
     if not r:
         raise HTTPException(404, "item not found")
     return await get_item(item_id)
+
+
+# ── 清库仪式:列出 AI 判为『无信息量』的(主动进入才聚合,不推送、不计数) ──────────
+@router.get("/cleanup", response_model=list[CleanupItem])
+async def cleanup_suggestions(limit: int = Query(default=200, le=500)):
+    """AI 在自动处理时顺手判的 quality='无信息量'。你想清库时才来看,一眼扫、一键删。
+    红线:'鸡汤'≠该删,反面样本仍有避坑价值,这里只出纯无信息量的。"""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT i.id, f.checksum, i.title, i.summary,
+                      i.ai_insight->>'quality_note' AS quality_note
+               FROM image.items i
+               JOIN image.files f ON f.id = i.file_id
+               WHERE i.deleted_at IS NULL
+                 AND i.ai_output->>'quality' = '无信息量'
+               ORDER BY i.created_at DESC
+               LIMIT %s""",
+            (limit,),
+        ).fetchall()
+    return [CleanupItem(**r) for r in rows]
 
 
 # ── 消化闭环:闸门一 review / 闸门二 入脑 / 碎片落箱 ──────────────────────────

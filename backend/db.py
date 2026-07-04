@@ -25,10 +25,28 @@ def get_conn():
 
 
 def ensure_schema():
-    """轻量运行时迁移:保证 init.sql 之后新增的列存在(已部署的库不会重跑 init.sql)。
+    """轻量运行时迁移:保证 init.sql 之后新增的列/表存在(已部署的库不会重跑 init.sql)。
     全部 IF NOT EXISTS,幂等安全。"""
     with get_conn() as conn:
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS ai_insight JSONB")
+        # v0.3 文字入口:手写/剪藏的文字条目(速记/日志/计划/剪藏),复用 core,靠 kind 区分
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS core.entries (
+                id         BIGSERIAL PRIMARY KEY,
+                kind       TEXT NOT NULL,                       -- note|log|plan|clip
+                body       TEXT NOT NULL,
+                status     TEXT NOT NULL DEFAULT 'inbox',       -- inbox|filed
+                mood       TEXT,                                -- 日志可选心情
+                pinned     BOOLEAN NOT NULL DEFAULT false,      -- 计划钉住
+                logged_for DATE,                                -- 日志:事情发生的日期
+                deleted_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )""")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_kind    ON core.entries (kind)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_status  ON core.entries (status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_logged  ON core.entries (logged_for)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_deleted ON core.entries (deleted_at)")
         conn.commit()
 
 

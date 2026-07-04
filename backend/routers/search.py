@@ -26,12 +26,13 @@ def _snippet(text: str, q: str, span: int = 40) -> str | None:
 
 @router.get("", response_model=list[SearchHit])
 async def search(q: str = Query(..., min_length=1), limit: int = Query(default=50, le=200)):
-    """按关键词检索全部条目:标题 / 摘要 / 当前正文(clean_text)。"""
+    """按关键词检索全部截图条目(标题/摘要/正文)+ 手写文字(速记/日志/计划/剪藏)。"""
     like = f"%{q}%"
+    hits: list[SearchHit] = []
     with get_conn() as conn:
-        rows = conn.execute(
+        img_rows = conn.execute(
             """SELECT i.id AS item_id, f.checksum, i.title, i.summary, i.granularity,
-                      c.clean_text
+                      c.clean_text, i.created_at
                FROM image.items i
                JOIN image.files f ON f.id = i.file_id
                LEFT JOIN LATERAL (
@@ -45,12 +46,24 @@ async def search(q: str = Query(..., min_length=1), limit: int = Query(default=5
                LIMIT %s""",
             (like, like, like, limit),
         ).fetchall()
+        entry_rows = conn.execute(
+            """SELECT id AS entry_id, kind, body, created_at
+               FROM core.entries
+               WHERE deleted_at IS NULL AND body ILIKE %s
+               ORDER BY created_at DESC
+               LIMIT %s""",
+            (like, limit),
+        ).fetchall()
 
-    hits = []
-    for r in rows:
+    for r in img_rows:
         snippet = _snippet(r["clean_text"], q) if r.get("clean_text") else None
         hits.append(SearchHit(
-            item_id=r["item_id"], checksum=r["checksum"], title=r["title"],
-            summary=r["summary"], granularity=r["granularity"], snippet=snippet,
+            source="image", item_id=r["item_id"], checksum=r["checksum"],
+            title=r["title"], summary=r["summary"], granularity=r["granularity"], snippet=snippet,
         ))
-    return hits
+    for r in entry_rows:
+        hits.append(SearchHit(
+            source="entry", entry_id=r["entry_id"], kind=r["kind"],
+            summary=r["body"][:120], snippet=_snippet(r["body"], q),
+        ))
+    return hits[:limit]

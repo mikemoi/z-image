@@ -84,9 +84,12 @@ class KnowledgeHit(BaseModel):
 
 
 class SearchHit(BaseModel):
-    """搜索命中:直接指向条目(点进详情看原图),覆盖全部上传内容而非仅入脑的。"""
-    item_id: int
-    checksum: str
+    """搜索命中:覆盖全部上传条目 + 手写文字(速记/日志/计划/剪藏)。source 区分,前端分流跳转。"""
+    source: str = "image"            # 'image' 截图条目 | 'entry' 手写文字
+    item_id: int | None = None       # image:点进详情看原图
+    checksum: str | None = None
+    entry_id: int | None = None      # entry:点进对应文字页
+    kind: str | None = None          # entry 的 kind(note/log/plan/clip)
     title: str | None = None
     summary: str | None = None
     granularity: str | None = None

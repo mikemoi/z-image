@@ -42,16 +42,23 @@ export default function Search() {
         <div className="empty-hint">没有命中「{term}」</div>
       ) : (
         <div className="card-list">
-          {hits.map((h) => (
-            <div key={h.item_id} className="card" onClick={() => nav(`/item/${h.item_id}`)}>
-              {h.checksum && <div className="card-thumb"><Img checksum={h.checksum} className="thumb" /></div>}
-              <div className="card-body">
-                {h.title && <div className="card-title">{h.title}</div>}
-                {h.summary && <div className="card-summary" style={{ WebkitLineClamp: 3 }}>{h.summary}</div>}
-                {h.snippet && <div className="card-snippet">{h.snippet}</div>}
+          {hits.map((h) => {
+            const isEntry = h.source === 'entry'
+            const key = isEntry ? `e${h.entry_id}` : `i${h.item_id}`
+            const go = () => nav(isEntry ? (h.kind === 'log' ? '/logs' : '/inbox') : `/item/${h.item_id}`)
+            const kindLabel = { note: '速记', log: '日志', plan: '计划', clip: '剪藏' }[h.kind]
+            return (
+              <div key={key} className="card" onClick={go}>
+                {h.checksum && <div className="card-thumb"><Img checksum={h.checksum} className="thumb" /></div>}
+                <div className="card-body">
+                  {isEntry && <span className="entry-kind">{kindLabel || '文字'}</span>}
+                  {h.title && <div className="card-title">{h.title}</div>}
+                  {h.summary && <div className="card-summary" style={{ WebkitLineClamp: 3 }}>{h.summary}</div>}
+                  {h.snippet && <div className="card-snippet">{h.snippet}</div>}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

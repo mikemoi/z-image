@@ -261,6 +261,64 @@ input { font-family: inherit; font-size: 17px; }
 .grow-yes { background: var(--theme); color: #fff; font-weight: 600; padding: 7px 16px; border-radius: 10px; }
 .grow-no { color: var(--ink-2); padding: 7px 12px; border-radius: 10px; }
 
+/* ── 文字入口:记 / 待整理 / 日志 / 清库 ─────────────────────────── */
+.text-link { color: var(--accent); font-size: 15px; padding: 4px; }
+.capture-hint { color: var(--ink-2); font-size: 14px; margin: 4px 2px 12px; }
+.capture-input {
+  width: 100%; border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 14px; font-size: 17px; line-height: 1.6; resize: vertical;
+  background: var(--surface); font-family: inherit;
+}
+.mood-row { display: flex; align-items: center; gap: 8px; margin: 12px 2px; flex-wrap: wrap; }
+.mood-label { font-size: 14px; color: var(--ink-2); margin-right: 4px; }
+.mood { font-size: 24px; padding: 4px 6px; border-radius: 10px; opacity: .5; }
+.mood-on { opacity: 1; background: var(--accent-soft); }
+.log-save { margin-left: auto; background: var(--accent); color: #fff; font-weight: 600; padding: 8px 18px; border-radius: 10px; }
+.log-save:disabled { opacity: .4; }
+.capture-links { display: flex; gap: 16px; margin-top: 24px; justify-content: center; }
+
+.entry-card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 14px; margin-bottom: 12px;
+}
+.entry-top { margin-bottom: 6px; }
+.entry-kind {
+  display: inline-block; font-size: 12px; font-weight: 700; color: var(--theme);
+  background: var(--theme-soft); padding: 2px 8px; border-radius: 8px;
+}
+.entry-body { font-size: 16px; line-height: 1.6; white-space: pre-wrap; }
+.entry-acts { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.mini {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  padding: 7px 12px; font-size: 14px; font-weight: 500;
+}
+.mini-danger { color: var(--danger); }
+
+.log-compose { margin-bottom: 20px; }
+.log-list, .onthisday { margin-top: 4px; }
+.log-item {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;
+}
+.log-past { background: var(--accent-soft); border-color: var(--accent); }
+.log-date { font-size: 13px; color: var(--ink-2); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+.log-del { margin-left: auto; color: var(--danger); font-size: 13px; }
+
+.plans { margin: 4px 2px 14px; display: flex; flex-direction: column; gap: 8px; }
+.plan-card {
+  display: flex; align-items: center; gap: 10px;
+  background: #fffdf2; border: 1px solid #e9dfa8; border-radius: var(--radius);
+  padding: 12px 14px;
+}
+.plan-pin { font-size: 18px; }
+.plan-body { font-size: 15px; font-weight: 500; }
+
+.clean-row { display: flex; gap: 12px; }
+.clean-thumb { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; flex-shrink: 0; }
+.clean-body { flex: 1; min-width: 0; }
+.clean-note { font-size: 13px; color: var(--ink-2); margin-top: 4px; font-style: italic; }
+.home-foot { text-align: center; margin: 28px 0 8px; }
+
 /* ── trash ─────────────────────────── */
 .trash-actions { display: flex; gap: 10px; padding: 0 14px 14px; }
 .trash-actions .act { flex: 1; }
