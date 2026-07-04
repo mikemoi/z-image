@@ -61,7 +61,12 @@ async def worker_status(_: bool = Depends(require_token)):
 
 
 # ── 挂载前端 dist(存在才挂;API 路由已在上面注册,优先匹配) ──────────────────
-_DIST = Path(__file__).parent.parent / "frontend" / "dist"
+# 兼容两种布局:本地仓库(backend 与 frontend 同级)/ 容器(backend 复制到 /app,dist 在 /app/frontend/dist)
+_DIST_CANDIDATES = [
+    Path(__file__).parent.parent / "frontend" / "dist",  # 本地:z-image/frontend/dist
+    Path(__file__).parent / "frontend" / "dist",          # 容器:/app/frontend/dist
+]
+_DIST = next((p for p in _DIST_CANDIDATES if p.exists()), _DIST_CANDIDATES[0])
 if _DIST.exists():
     app.mount("/assets", StaticFiles(directory=_DIST / "assets"), name="assets")
 
