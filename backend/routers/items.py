@@ -8,14 +8,17 @@ import hashlib
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query
+from psycopg.types.json import Jsonb
 
 from auth import require_token
 from db import get_conn
 from config import FILES_ROOT
 from worker import process_item
+from vision import call_insight
 from models.items import (
     UploadResult, ItemBrief, ItemDetail, ItemList, OkResult,
     ItemUpdate, DimensionStats, PromoteResult, NoteResult,
+    InsightResult, AdoptTheme,
 )
 
 router = APIRouter(prefix="/api/items", tags=["items"], dependencies=[Depends(require_token)])
@@ -137,6 +140,81 @@ async def reprocess(item_id: int):
     if not r:
         raise HTTPException(404, "item not found")
     return OkResult()
+
+
+# ── 「问问 AI」:按需生成看法(拉不推)+ 采纳提议的新分类(你点头才生效) ──────────
+@router.post("/{item_id}/insight", response_model=InsightResult)
+async def insight(item_id: int, refresh: bool = Query(default=False)):
+    """详情页主动点击才调 AI(省钱),结果缓存进 ai_insight;refresh=true 强制重算。"""
+    with get_conn() as conn:
+        row = conn.execute(
+            """SELECT i.id, f.file_path, i.title, i.summary, i.ai_insight
+               FROM image.items i
+               JOIN image.files f ON f.id = i.file_id
+               WHERE i.id = %s AND i.deleted_at IS NULL""",
+            (item_id,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(404, "item not found")
+        if row["ai_insight"] and not refresh:
+            return InsightResult(**row["ai_insight"], cached=True)
+        content = conn.execute(
+            """SELECT clean_text FROM image.contents
+               WHERE item_id = %s AND is_current = true
+               ORDER BY created_at DESC LIMIT 1""",
+            (item_id,),
+        ).fetchone()
+        themes = conn.execute(
+            "SELECT name FROM core.tags WHERE kind = 'theme' ORDER BY id"
+        ).fetchall()
+
+    existing = [t["name"] for t in themes]
+    context = {
+        "title": row["title"],
+        "summary": row["summary"],
+        "clean_text": content["clean_text"] if content else None,
+    }
+    try:
+        result = await call_insight(row["file_path"], context, existing)
+    except Exception as e:  # noqa: BLE001 —— 外部调用失败直接告知,不缓存
+        raise HTTPException(502, f"AI 调用失败: {e}")
+
+    # 若模型提议的"新分类"其实已存在,视为无提议(护栏:优先用已有分类)
+    if result["suggested_theme"] and result["suggested_theme"].lower() in {
+        e.lower() for e in existing
+    }:
+        result["suggested_theme"] = None
+        result["suggested_theme_reason"] = None
+
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE image.items SET ai_insight = %s, updated_at = now() WHERE id = %s",
+            (Jsonb(result), item_id),
+        )
+        conn.commit()
+    return InsightResult(**result, cached=False)
+
+
+@router.post("/{item_id}/adopt-theme", response_model=ItemDetail)
+async def adopt_theme(item_id: int, body: AdoptTheme):
+    """采纳 AI 提议的新分类:建 theme tag(生长)+ 打到本条上。"""
+    name = (body.theme or "").strip()
+    if not name:
+        raise HTTPException(400, "theme required")
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO core.tags (name, kind) VALUES (%s, 'theme') ON CONFLICT DO NOTHING",
+            (name,),
+        )
+        r = conn.execute(
+            """UPDATE image.items SET theme = %s, updated_at = now()
+               WHERE id = %s AND deleted_at IS NULL RETURNING id""",
+            (name, item_id),
+        ).fetchone()
+        conn.commit()
+    if not r:
+        raise HTTPException(404, "item not found")
+    return await get_item(item_id)
 
 
 # ── 消化闭环:闸门一 review / 闸门二 入脑 / 碎片落箱 ──────────────────────────

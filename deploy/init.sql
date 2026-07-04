@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS image.items (
     granularity     TEXT,
     is_ocr_suitable BOOLEAN DEFAULT false,
     ai_output       JSONB,
+    ai_insight      JSONB,                  -- v0.3「问问 AI」按需生成的看法(缓存,AI 补充非原文)
     reviewed_at     TIMESTAMPTZ,
     promoted_at     TIMESTAMPTZ,
     deleted_at      TIMESTAMPTZ,

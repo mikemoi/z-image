@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import Img from '../components/Img'
 
-// 全文检索 core.knowledge(精选脑)。
+// 全文检索:覆盖全部上传条目(标题/摘要/正文),点击进详情。
 export default function Search() {
   const [sp, setSp] = useSearchParams()
   const nav = useNavigate()
@@ -33,7 +33,7 @@ export default function Search() {
         <button className="back" onClick={() => nav('/')}>‹ 首页</button>
       </div>
       <form className="search-bar" onSubmit={submit}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜索精选脑" autoFocus autoCapitalize="off" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜索全部内容" autoFocus autoCapitalize="off" />
       </form>
 
       {loading ? (
@@ -43,11 +43,12 @@ export default function Search() {
       ) : (
         <div className="card-list">
           {hits.map((h) => (
-            <div key={h.id} className="card">
+            <div key={h.item_id} className="card" onClick={() => nav(`/item/${h.item_id}`)}>
               {h.checksum && <div className="card-thumb"><Img checksum={h.checksum} className="thumb" /></div>}
               <div className="card-body">
                 {h.title && <div className="card-title">{h.title}</div>}
-                <div className="card-summary" style={{ WebkitLineClamp: 4 }}>{h.body}</div>
+                {h.summary && <div className="card-summary" style={{ WebkitLineClamp: 3 }}>{h.summary}</div>}
+                {h.snippet && <div className="card-snippet">{h.snippet}</div>}
               </div>
             </div>
           ))}

@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-from db import open_pool, close_pool, check_db
+from db import open_pool, close_pool, check_db, ensure_schema
 from auth import require_token
 from routers import items, files, stats, feed, search
 from worker import start_worker, stop_worker, budget_status
@@ -15,6 +15,7 @@ from worker import start_worker, stop_worker, budget_status
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     open_pool()
+    ensure_schema()
     start_worker()
     yield
     await stop_worker()

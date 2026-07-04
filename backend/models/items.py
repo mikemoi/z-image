@@ -83,5 +83,30 @@ class KnowledgeHit(BaseModel):
     created_at: datetime
 
 
+class SearchHit(BaseModel):
+    """搜索命中:直接指向条目(点进详情看原图),覆盖全部上传内容而非仅入脑的。"""
+    item_id: int
+    checksum: str
+    title: str | None = None
+    summary: str | None = None
+    granularity: str | None = None
+    snippet: str | None = None       # 正文里命中词周围的片段,可空
+
+
+class InsightResult(BaseModel):
+    """「问问 AI」的看法。明确是 AI 补充,与原文事实源分开。按需生成、结果缓存。"""
+    explanation: str                          # 讲明白 + 一句看法/定义
+    quality: str | None = None                # 干货 / 反面样本 / 无信息量
+    quality_note: str | None = None           # 为什么这么判断
+    suggested_theme: str | None = None         # 现有分类都不合适时,提议的新分类名
+    suggested_theme_reason: str | None = None
+    cached: bool = False                      # 是否命中缓存(未重新烧钱)
+
+
+class AdoptTheme(BaseModel):
+    """采纳 AI 提议的新分类:建 tag + 打到本条上(生长的分类,你点头才生效)。"""
+    theme: str
+
+
 class OkResult(BaseModel):
     ok: bool = True

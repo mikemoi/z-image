@@ -15,10 +15,31 @@ export default function Detail() {
   const [zoom, setZoom] = useState(false)
   const [draft, setDraft] = useState({})
   const [msg, setMsg] = useState('')
+  const [insight, setInsight] = useState(null)
+  const [asking, setAsking] = useState(false)
 
   useEffect(() => {
+    setInsight(null)
     api.getItem(id).then((it) => { setItem(it); setDraft(it) }).catch(() => setItem(false))
   }, [id])
+
+  async function ask(refresh = false) {
+    setAsking(true); setMsg('')
+    try {
+      const r = await api.insight(item.id, refresh)
+      setInsight(r)
+    } catch (e) {
+      setMsg(e.status === 502 ? 'AI 调用失败,稍后再试' : '出错了')
+    } finally {
+      setAsking(false)
+    }
+  }
+  async function adoptTheme(theme) {
+    const updated = await api.adoptTheme(item.id, theme)
+    setItem(updated); setDraft(updated)
+    setInsight({ ...insight, suggested_theme: null, suggested_theme_reason: null })
+    setMsg(`已归入「${theme}」✓`)
+  }
 
   if (item === false) return <div className="page"><div className="empty-hint">条目不存在</div></div>
   if (!item) return <div className="page"><div className="empty-hint">加载中…</div></div>
@@ -90,6 +111,41 @@ export default function Detail() {
           <div className="block-text pre">{item.clean_text}</div>
         </div>
       )}
+
+      {/* 问问 AI:按需触发,标明是 AI 补充,与上面的原文分开 */}
+      <div className="ai-block">
+        {!insight && (
+          <button className="ai-ask" onClick={() => ask(false)} disabled={asking}>
+            {asking ? '正在想…' : '💡 问问 AI'}
+          </button>
+        )}
+        {insight && (
+          <div className="ai-card">
+            <div className="ai-head">
+              <span className="ai-badge">AI 补充</span>
+              {insight.cached && <span className="ai-cached">已存</span>}
+              <span className="ai-note">AI 的看法,可能有错,别当原文</span>
+            </div>
+            <div className="ai-text">{insight.explanation}</div>
+            {insight.quality && (
+              <div className={`ai-quality q-${insight.quality === '无信息量' ? 'low' : insight.quality === '反面样本' ? 'mid' : 'high'}`}>
+                <b>{insight.quality}</b>
+                {insight.quality_note && <span> · {insight.quality_note}</span>}
+              </div>
+            )}
+            {insight.suggested_theme && (
+              <div className="ai-suggest">
+                <span>建议新分类:「{insight.suggested_theme}」</span>
+                {insight.suggested_theme_reason && <em> {insight.suggested_theme_reason}</em>}
+                <button className="ai-adopt" onClick={() => adoptTheme(insight.suggested_theme)}>采用</button>
+              </div>
+            )}
+            <button className="ai-again" onClick={() => ask(true)} disabled={asking}>
+              {asking ? '…' : '重新问'}
+            </button>
+          </div>
+        )}
+      </div>
 
       {editing && (
         <div className="edit-box">

@@ -24,6 +24,14 @@ def get_conn():
         yield conn
 
 
+def ensure_schema():
+    """轻量运行时迁移:保证 init.sql 之后新增的列存在(已部署的库不会重跑 init.sql)。
+    全部 IF NOT EXISTS,幂等安全。"""
+    with get_conn() as conn:
+        conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS ai_insight JSONB")
+        conn.commit()
+
+
 def check_db() -> bool:
     """健康检查:能否连通并执行一条查询。"""
     try:

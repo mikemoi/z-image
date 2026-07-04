@@ -89,8 +89,8 @@ def normalize(raw: dict) -> dict:
     }
 
 
-async def call_vision(file_path: str) -> dict:
-    """把原图发给 OpenRouter,返回规整后的 dict。任何失败抛异常。"""
+async def _chat_image(prompt: str, file_path: str, temperature: float = 0.0) -> str:
+    """把 prompt + 原图发给 OpenRouter,返回模型文本。任何失败抛异常。"""
     if not OPENROUTER_API_KEY:
         raise RuntimeError("OPENROUTER_API_KEY 未配置")
 
@@ -103,11 +103,11 @@ async def call_vision(file_path: str) -> dict:
         "messages": [{
             "role": "user",
             "content": [
-                {"type": "text", "text": PROMPT},
+                {"type": "text", "text": prompt},
                 {"type": "image_url", "image_url": {"url": data_uri}},
             ],
         }],
-        "temperature": 0,
+        "temperature": temperature,
     }
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -122,7 +122,65 @@ async def call_vision(file_path: str) -> dict:
         resp.raise_for_status()
         body = resp.json()
 
-    content = body["choices"][0]["message"]["content"]
+    return body["choices"][0]["message"]["content"]
+
+
+async def call_vision(file_path: str) -> dict:
+    """把原图发给 OpenRouter,返回规整后的 dict。任何失败抛异常。"""
+    content = await _chat_image(PROMPT, file_path, temperature=0)
     parsed = normalize(parse_json(content))
     parsed["_raw_content"] = content  # 存进 ai_output 备查
     return parsed
+
+
+# ── 「问问 AI」:按需生成的看法 / 定义 / 质量判断 / 分类建议 ────────────────────
+# 红线:这是 AI 补充,不是原文;鸡汤≠该删——情绪帖/踩坑有"避坑"价值,只有纯无信息量才建议清。
+INSIGHT_PROMPT = """你是用户第二脑里的讲解员。用户存了一张图/一段内容,现在主动点开、想听你的看法。
+已知信息:
+{context}
+
+只返回一个 JSON 对象,不要任何解释、不要 markdown 包裹。
+
+1. explanation:把这张图/这段内容讲明白——它在讲什么、关键术语什么意思、你的一句看法。
+   像一个懂行的朋友三两句点透,别复述原文。100-200 字。
+2. quality:对信息价值的判断,择一:
+   "干货" —— 有方法/论证/信息量,值得留。
+   "反面样本" —— 情绪帖/踩坑/爆仓/普遍误区,本身像鸡汤,但用户可借以反思规避,有"避坑"价值,值得留。
+   "无信息量" —— 纯灌水、纯礼貌性评论("写得真好")、无提炼价值,可考虑清理。
+   注意:不要把有反面价值的内容误判成"无信息量";只有真的什么都没剩下才判"无信息量"。
+3. quality_note:一句话说明为什么这么判断(尤其"反面样本"要说清它的借鉴价值在哪)。
+4. suggested_theme:现有主题分类有:{themes}。
+   如果这条内容明显不属于其中任何一个、需要一个新分类,给出新分类的简短中文名(如"运动""情绪""健康");
+   如果现有分类里有能装下它的,留空字符串,不要硬造。
+5. suggested_theme_reason:若提议了新分类,一句话说为什么;否则留空。
+
+输出示例:{{"explanation":"...","quality":"干货","quality_note":"...","suggested_theme":"","suggested_theme_reason":""}}"""
+
+_QUALITY = {"干货", "反面样本", "无信息量"}
+
+
+def normalize_insight(raw: dict) -> dict:
+    q = (raw.get("quality") or "").strip()
+    st = (raw.get("suggested_theme") or "").strip()
+    return {
+        "explanation": (raw.get("explanation") or "").strip(),
+        "quality": q if q in _QUALITY else None,
+        "quality_note": (raw.get("quality_note") or "").strip() or None,
+        "suggested_theme": st or None,
+        "suggested_theme_reason": (raw.get("suggested_theme_reason") or "").strip() or None,
+    }
+
+
+async def call_insight(file_path: str, context: dict, existing_themes: list[str]) -> dict:
+    """按需生成看法。context: {title, summary, clean_text};existing_themes: 现有主题名列表。"""
+    lines = []
+    if context.get("title"):
+        lines.append(f"标题:{context['title']}")
+    if context.get("summary"):
+        lines.append(f"摘要:{context['summary']}")
+    if context.get("clean_text"):
+        lines.append(f"正文:{context['clean_text'][:2000]}")
+    ctx = "\n".join(lines) or "(没有已提取的文字,主要看图判断)"
+    prompt = INSIGHT_PROMPT.format(context=ctx, themes="、".join(existing_themes) or "(无)")
+    content = await _chat_image(prompt, file_path, temperature=0.3)
+    return normalize_insight(parse_json(content))

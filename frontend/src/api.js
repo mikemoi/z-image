@@ -81,4 +81,14 @@ export const api = {
   resurface: (limit = 5) => req(`/feed/resurface?limit=${limit}`),
   deleteNote: (id) => req(`/feed/notes/${id}/soft-delete`, { method: 'PATCH' }),
   search: (q) => req(`/search?q=${encodeURIComponent(q)}`),
+
+  // 「问问 AI」:按需生成看法 + 采纳提议的新分类
+  insight: (id, refresh = false) =>
+    req(`/items/${id}/insight${refresh ? '?refresh=true' : ''}`, { method: 'POST' }),
+  adoptTheme: (id, theme) =>
+    req(`/items/${id}/adopt-theme`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ theme }),
+    }),
 }
