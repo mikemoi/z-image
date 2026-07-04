@@ -180,10 +180,9 @@ export default function Detail() {
 
       {msg && <div className="detail-msg">{msg}</div>}
 
-      {/* 底部操作:标签 / 留下 / 精选 / 删除 */}
+      {/* 底部操作:标签 / 精选 / 删除(不删即留下) */}
       <div className="detail-actions">
         <button className="act" onClick={() => setEditing((v) => !v)}>{editing ? '取消' : '标签'}</button>
-        {!isAsset && <button className="act" onClick={keep} disabled={reviewed}>{reviewed ? '已留下' : '留下'}</button>}
         {!isAsset && <button className="act act-primary" onClick={pick} disabled={digested}>{digested ? '已精选' : '精选'}</button>}
         <button className="act act-danger" onClick={del}>删除</button>
       </div>
