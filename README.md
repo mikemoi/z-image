@@ -215,6 +215,9 @@ docker compose down                        # 停(数据卷 pgdata 保留)
 
 ## 文档索引
 
+**北极星(方向模糊、功能膨胀时先看这个)**
+- [`docs/FRAMEWORK.md`](docs/FRAMEWORK.md) —— 产品本质与板块蓝图:这软件到底是什么、每个板块为什么存在、主循环、带偏自查
+
 **设计参考(以后设计先看这里)**
 - [`docs/DATABASE.md`](docs/DATABASE.md) —— 数据字典:每表每字段含义、枚举值、JSONB 结构、关系
 - [`docs/API.md`](docs/API.md) —— 完整 API 端点参考
