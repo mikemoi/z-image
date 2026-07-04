@@ -66,7 +66,8 @@ async def ideas():
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT e.id, e.kind, e.body, e.status, e.mood, e.pinned, e.logged_for,
-                      e.source_item_id, f.checksum, e.created_at, e.updated_at
+                      e.source_item_id, e.theme, e.promoted_at, f.checksum,
+                      e.created_at, e.updated_at
                FROM core.entries e
                LEFT JOIN image.items i ON i.id = e.source_item_id
                LEFT JOIN image.files f ON f.id = i.file_id
@@ -74,6 +75,44 @@ async def ideas():
                ORDER BY e.created_at DESC""",
         ).fetchall()
     return [Entry(**r) for r in rows]
+
+
+@router.post("/{entry_id}/promote", response_model=OkResult)
+async def promote_idea(entry_id: int):
+    """精选想法入脑:body 存进 core.knowledge(挂主题标签),标记 promoted_at。"""
+    with get_conn() as conn:
+        e = conn.execute(
+            "SELECT id, body, theme, promoted_at FROM core.entries WHERE id = %s AND deleted_at IS NULL",
+            (entry_id,),
+        ).fetchone()
+        if not e:
+            raise HTTPException(404, "idea not found")
+        if e["promoted_at"]:
+            raise HTTPException(409, "已精选,勿重复")
+        source_id = conn.execute(
+            """INSERT INTO core.sources (origin_schema, origin_table, origin_id)
+               VALUES ('core', 'entries', %s) RETURNING id""",
+            (entry_id,),
+        ).fetchone()["id"]
+        kid = conn.execute(
+            "INSERT INTO core.knowledge (source_id, body) VALUES (%s, %s) RETURNING id",
+            (source_id, e["body"]),
+        ).fetchone()["id"]
+        if e["theme"]:
+            tag = conn.execute(
+                "SELECT id FROM core.tags WHERE name = %s AND kind = 'theme'", (e["theme"],)
+            ).fetchone()
+            if tag:
+                conn.execute(
+                    "INSERT INTO core.knowledge_tags (knowledge_id, tag_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                    (kid, tag["id"]),
+                )
+        conn.execute(
+            "UPDATE core.entries SET promoted_at = now(), updated_at = now() WHERE id = %s",
+            (entry_id,),
+        )
+        conn.commit()
+    return OkResult()
 
 
 @router.get("", response_model=list[Entry])
@@ -168,7 +207,8 @@ async def update_entry(entry_id: int, patch: EntryUpdate):
         row = conn.execute(
             f"""UPDATE core.entries SET {sets}, updated_at = now()
                 WHERE id = %s AND deleted_at IS NULL
-                RETURNING id, kind, body, status, mood, pinned, logged_for, created_at, updated_at""",
+                RETURNING id, kind, body, status, mood, pinned, logged_for,
+                          source_item_id, theme, promoted_at, created_at, updated_at""",
             list(fields.values()) + [entry_id],
         ).fetchone()
         conn.commit()

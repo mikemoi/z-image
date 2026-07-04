@@ -20,6 +20,7 @@ class EntryUpdate(BaseModel):
     pinned: bool | None = None
     status: str | None = None
     logged_for: date | None = None
+    theme: str | None = None
 
 
 class Entry(BaseModel):
@@ -31,6 +32,8 @@ class Entry(BaseModel):
     pinned: bool = False
     logged_for: date | None = None
     source_item_id: int | None = None
+    theme: str | None = None
+    promoted_at: datetime | None = None
     checksum: str | None = None        # 想法来源截图缩略(ideas 列表用)
     created_at: datetime
     updated_at: datetime

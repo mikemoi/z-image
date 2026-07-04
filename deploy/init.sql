@@ -72,6 +72,8 @@ CREATE TABLE IF NOT EXISTS core.entries (
     pinned     BOOLEAN NOT NULL DEFAULT false,      -- 计划钉住
     logged_for DATE,                                -- 日志:事情发生的日期
     source_item_id BIGINT,                          -- 想法来自哪张截图(可空)
+    theme      TEXT,                                -- 想法可打主题
+    promoted_at TIMESTAMPTZ,                        -- 想法已精选入脑
     deleted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

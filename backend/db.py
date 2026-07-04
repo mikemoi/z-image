@@ -48,6 +48,8 @@ def ensure_schema():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_logged  ON core.entries (logged_for)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_deleted ON core.entries (deleted_at)")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS source_item_id BIGINT")
+        conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS theme TEXT")          # 想法可打主题
+        conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS promoted_at TIMESTAMPTZ")  # 想法已精选入脑
         # v0.3 设置:通用 kv(现用于 OCR/问问AI 模型切换,以后阈值/主题等也可放这)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS core.settings (
