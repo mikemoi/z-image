@@ -25,10 +25,18 @@
 - **稳健运行**:每日预算上限、失败自动重试到上限、可续跑;任何失败不阻塞,停在 `review` 等人工兜底。
 
 ### 用(方便用)· 四种遇见
-- **按维度浏览**:主题(trading/ai/adhd/language/life/other)× 用途(方法/避坑/心态/工具/灵感)交叉筛选。
+- **按维度浏览**:主题 × 用途交叉筛选。主题**可生长**——AI 遇到装不下的领域(运动/情绪…)会攒够一簇后建议新建,你点头才加(用途保持稳定五类)。
 - **重新遇见**:首页偶尔翻出最久没见的碎片,配原图缩略,看完轮换。无待办、纯偶遇。
-- **搜索**:全文检索精选脑(中英文,中文走子串兜底)。
+- **搜索**:全文检索**全部内容**(截图条目 + 手写文字,标题/摘要/正文,中文走子串兜底)。
 - **关联**:预留 pgvector(第二刀)。
+
+### 问问 AI · 会给你讲的第二脑(v0.3)
+- **详情页「问问 AI」**:你主动点才调用(拉不推、按需付费),结果缓存不重复烧钱。
+- 给三样:**看法/定义**(讲明白这是什么,标「AI 补充」与原文分开)、**质量判断**(干货/反面样本/无信息量)、**新分类建议**(一键采纳)。
+
+### 记 · 文字入口(v0.3)
+- **速记 / 日志 / 计划 / AI 剪藏**,零摩擦记下(`core.entries`,复用 core)。
+- **速记/剪藏** → 待整理 → 归位进精选脑或碎片箱;**日志** → 带日期、按天翻、往年今天、可选心情(绝不 streak);**计划** → 钉住常驻。
 
 ### 消化闭环 · 三层存储门槛递减
 ```
@@ -37,10 +45,11 @@ image.contents.clean_text
   └─ fragment  → ①review 确认是碎片 → core.notes(轻路径,无第二道闸门)
 ```
 
-### 删(提纯)· 删除三档
+### 删(提纯)· 删除三档 + 清库
 - **删除**(一键软删,无劝阻):任何界面看到"什么玩意"立即消失,原文件与记录仍在。日常唯一常用。
 - **回收站**(后悔药):软删项可恢复。
 - **彻底销毁**(二次确认):永久抹磁盘原文件 + 删记录,共享文件被引用时不误删。
+- **清库(v0.3)**:AI 自动处理时顺手判「无信息量」,你主动进「清库」才聚合列出、一眼扫着删——不推送、不计数(鸡汤≠该删,只出纯无信息量的)。
 
 ---
 
@@ -63,24 +72,35 @@ image.contents.clean_text
 ```
 z-image/
 ├── backend/               FastAPI 后端
-│   ├── main.py            入口:健康检查 + 挂载前端 dist + 后台 worker
-│   ├── db.py              PostgreSQL 连接池
+│   ├── main.py            入口:健康检查 + 挂载前端 dist + 后台 worker + 启动迁移
+│   ├── db.py              PostgreSQL 连接池 + ensure_schema() 运行时迁移
 │   ├── auth.py            单用户 header token 鉴权
 │   ├── config.py          环境变量
-│   ├── vision.py          OpenRouter 调用 + 强制 JSON prompt + 稳健解析
+│   ├── vision.py          OpenRouter:自动分析(call_vision)+ 问问AI(call_insight)
 │   ├── worker.py          后台轮询处理 + 每日预算 + 失败重试
 │   ├── clean.py           机械清洗
-│   ├── routers/           items / files / stats / feed / search
-│   └── models/            Pydantic 模型
+│   ├── routers/           items / files / stats / feed / search / entries
+│   └── models/            items / entries(Pydantic 模型)
 ├── frontend/              React + Vite + PWA
-│   └── src/pages/         Upload / Home / Browse / Detail / Trash / Search
+│   └── src/
+│       ├── pages/         Upload / Home / Browse / Detail / Trash / Search
+│       │                  Capture / Inbox / Logs / Cleanup(文字入口 + 清库)
+│       └── components/    TabBar / Icon(线性图标) / Img / ItemCard / TokenGate
+├── docs/                  📖 详细文档(设计参考)
+│   ├── DATABASE.md        数据字典:每表每字段含义 + 枚举 + JSONB 结构
+│   ├── API.md             完整端点参考
+│   └── CHANGELOG.md       版本变更历史
 ├── deploy/
 │   ├── init.sql           建表脚本(幂等)
 │   └── README.md          部署速查
+├── zbrain-architecture-v3.md   架构蓝图(what/why + schema + Vision prompt)
+├── v0.3-plan.md           下一步规划(向量/存量/文字入口重构/计划体系)
 ├── Dockerfile            多阶段:构建前端 + 后端服务
 ├── docker-compose.yml    postgres + backend 一键起
 └── .env.example          服务器配置模板
 ```
+
+> **详细的数据库结构、字段含义、API、版本变化**见 [`docs/`](docs/) 目录——以后设计时先看那里。
 
 ---
 
@@ -88,27 +108,19 @@ z-image/
 
 所有 `/api/*` 除 `/api/health` 外均需鉴权:`Authorization: Bearer <AUTH_TOKEN>`。
 
-| 方法 | 路径 | 说明 |
+分组概览(**完整端点、参数、返回见 [`docs/API.md`](docs/API.md)**):
+
+| 分组 | 前缀 | 主要能力 |
 |---|---|---|
-| GET | `/api/health` | 探活 + DB 连通性(免鉴权) |
-| POST | `/api/items/upload` | 批量上传,同步落库即返回 |
-| GET | `/api/items?theme=&use=&status=&granularity=&deleted=false` | 列表筛选 + 分页 |
-| GET | `/api/items/{id}` | 详情:原图 + 标签 + summary + 正文 |
-| PATCH | `/api/items/{id}` | 改标签(title/theme/use/status/granularity) |
-| POST | `/api/items/{id}/process` | 同步跑一遍 Vision(调试用) |
-| POST | `/api/items/{id}/reprocess` | 清结果重新入队 |
-| PATCH | `/api/items/{id}/review` | 闸门一:标记已看 |
-| PATCH | `/api/items/{id}/promote` | 闸门二:切块入脑(需先 review) |
-| POST | `/api/items/{id}/to-note` | 碎片落收集箱 |
-| PATCH | `/api/items/{id}/soft-delete` | 软删入回收站 |
-| POST | `/api/items/{id}/restore` | 从回收站恢复 |
-| DELETE | `/api/items/{id}/purge` | 彻底销毁(真删磁盘) |
-| GET | `/api/files/{checksum}` | 原图(内联) |
-| GET | `/api/stats/dimensions` | 维度计数 |
-| GET | `/api/feed/resurface` | 重新遇见:取最久没见的碎片 |
-| PATCH | `/api/feed/notes/{id}/soft-delete` | 删掉一条碎片 |
-| GET | `/api/search?q=` | 全文检索 core.knowledge |
-| GET | `/api/worker/status` | 当日 Vision 预算使用 |
+| 条目 | `/api/items` | 上传 / 列表 / 详情 / 改标签 / 问问AI / 采纳分类 / 清库 / review·promote·落箱 / 软删·恢复·销毁 |
+| 文字入口 | `/api/entries` | 记一条 / 待整理 / 计划 / 日志·往年今天 / 归位 / 软删·恢复 |
+| 维度·生长分类 | `/api/stats` | 维度计数 / 新分类候选 / 批量采纳 |
+| 搜索 | `/api/search` | 全文检索(截图 + 手写文字) |
+| 重新遇见 | `/api/feed` | 取碎片 / 删碎片 |
+| 原图 | `/api/files` | 按 checksum 取原图 |
+| 系统 | — | `/api/health` `/api/whoami` `/api/worker/status` |
+
+在线交互文档:`http://<host>:8000/docs`。
 
 ---
 
@@ -201,9 +213,16 @@ docker compose down                        # 停(数据卷 pgdata 保留)
 
 ---
 
-## 施工文档
+## 文档索引
 
+**设计参考(以后设计先看这里)**
+- [`docs/DATABASE.md`](docs/DATABASE.md) —— 数据字典:每表每字段含义、枚举值、JSONB 结构、关系
+- [`docs/API.md`](docs/API.md) —— 完整 API 端点参考
+- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) —— 每个版本的详细变化
+
+**蓝图与规划**
 - `zbrain-architecture-v3.md` —— 架构蓝图(what/why、完整 schema、Vision prompt)
 - `zbrain-claude-code-buildbook.md` —— 五步施工手册(how)
+- [`v0.3-plan.md`](v0.3-plan.md) —— 下一步规划(向量语义聚合 / 存量导入 / 文字入口时间流重构 / 计划体系)
 
-五步全部完成:① 数据库+骨架+鉴权 · ② 上传管线 · ③ 接 Vision · ④ iPhone 前端 · ⑤ 消化闭环。
+**进度**:v0.1 五步 MVP(能存)→ v0.2 部署 + 体验(能部署)→ **v0.3 智能整理 + 文字入口 + 视觉升级(会整理·当前)**。详见 CHANGELOG。
