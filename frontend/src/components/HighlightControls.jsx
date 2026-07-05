@@ -11,8 +11,10 @@ export default function HighlightControls({ textareaRef, highlights, onChange })
       setSelection(quote.length >= 2 ? quote : '')
     }
     for (const event of ['select', 'keyup', 'mouseup', 'touchend']) el.addEventListener(event, remember)
+    document.addEventListener('selectionchange', remember)
     return () => {
       for (const event of ['select', 'keyup', 'mouseup', 'touchend']) el.removeEventListener(event, remember)
+      document.removeEventListener('selectionchange', remember)
     }
   }, [textareaRef])
 

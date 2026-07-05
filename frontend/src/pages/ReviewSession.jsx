@@ -54,6 +54,11 @@ export default function ReviewSession() {
     setDetail(null); setInsight(null); setAsking(false); setAiError(''); setClassifying(false); setSelectedQuote('')
     api.getItem(current.id).then(setDetail).catch(() => setDetail(false))
   }, [items, index])
+  useEffect(() => {
+    if (!detail) return undefined
+    document.addEventListener('selectionchange', readTextSelection)
+    return () => document.removeEventListener('selectionchange', readTextSelection)
+  }, [detail?.id])
 
   function pickCategory(field, value) {
     setView('continuous'); load({ [field]: value })
@@ -88,15 +93,17 @@ export default function ReviewSession() {
       setDetail((d) => ({ ...d, entry_type: null, domain: null, use_tag: null, topics: null, ai_classify_status: 'pending' }))
     } finally { setClassifying(false) }
   }
+  function readTextSelection() {
+    const selection = window.getSelection()
+    const box = reviewTextRef.current
+    if (!selection || !box || selection.rangeCount === 0) return
+    if (!box.contains(selection.anchorNode) || !box.contains(selection.focusNode)) return
+    const quote = selection.toString().trim()
+    setSelectedQuote(quote.length >= 2 ? quote : '')
+  }
   function rememberTextSelection() {
-    setTimeout(() => {
-      const selection = window.getSelection()
-      const box = reviewTextRef.current
-      if (!selection || !box || selection.rangeCount === 0) return
-      if (!box.contains(selection.anchorNode) || !box.contains(selection.focusNode)) return
-      const quote = selection.toString().trim()
-      setSelectedQuote(quote.length >= 2 ? quote : '')
-    }, 0)
+    readTextSelection()
+    setTimeout(readTextSelection, 120)
   }
   async function saveHighlight() {
     if (!detail || !selectedQuote) return
@@ -144,7 +151,8 @@ export default function ReviewSession() {
             {detail.title && <h2>{detail.title}</h2>}
             {detail.summary && <p className="review-summary">{detail.summary}</p>}
             {(detail.clean_text || detail.raw_text) && <>
-              <div ref={reviewTextRef} onMouseUp={rememberTextSelection} onTouchEnd={rememberTextSelection}>
+              <div ref={reviewTextRef} className="review-selectable"
+                onMouseUp={rememberTextSelection} onTouchEnd={rememberTextSelection}>
                 <HighlightText text={detail.clean_text || detail.raw_text}
                   highlights={detail.highlights} className="review-text" />
               </div>

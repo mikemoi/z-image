@@ -493,7 +493,12 @@ input { font-family: inherit; font-size: 17px; }
 .highlight-row { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; }
 .highlight-row mark { flex: 1; }
 .highlight-row button { flex-shrink: 0; color: var(--ink-2); font-size: 12px; }
-.highlight-editor textarea { font-size: 15px; }
+.highlight-editor textarea {
+  font-size: 15px;
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
 
 /* 回收站 */
 .trash-list { display: flex; flex-direction: column; gap: 10px; }
@@ -516,6 +521,12 @@ input { font-family: inherit; font-size: 17px; }
 .review-card h2 { margin: 12px 0 5px; font-size: 20px; }
 .review-summary { color: var(--ink-2); margin: 5px 0 12px; }
 .review-text { white-space: pre-wrap; line-height: 1.65; }
+.review-selectable, .review-selectable * {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+  touch-action: auto;
+}
 .review-highlight { margin-top: 9px; color: var(--accent); font-size: 13px; }
 .review-highlight:disabled { color: var(--ink-2); opacity: .5; }
 .review-ai { margin: 14px 0 10px; }
