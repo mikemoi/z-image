@@ -215,6 +215,9 @@ docker compose down                        # 停(数据卷 pgdata 保留)
 
 ## 文档索引
 
+**接手先读这个**
+- [`docs/HANDOFF.md`](docs/HANDOFF.md) —— 工程交接总入口:是什么/架构/数据模型/AI管线/分类体系/待办/部署/开发验证/从哪接着做
+
 **北极星(方向模糊、功能膨胀时先看这个)**
 - [`docs/FRAMEWORK.md`](docs/FRAMEWORK.md) —— 产品本质与板块蓝图:这软件到底是什么、每个板块为什么存在、主循环、带偏自查
 
