@@ -93,24 +93,9 @@ export const api = {
   purgeNote: (id) => req(`/feed/notes/${id}/purge`, { method: 'DELETE' }),
   search: (q) => req(`/search?q=${encodeURIComponent(q)}`),
 
-  // 「问问 AI」:按需生成看法 + 采纳提议的新分类
+  // 「问问 AI」:按需生成看法
   insight: (id, refresh = false) =>
     req(`/items/${id}/insight${refresh ? '?refresh=true' : ''}`, { method: 'POST' }),
-  adoptTheme: (id, theme) =>
-    req(`/items/${id}/adopt-theme`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ theme }),
-    }),
-
-  // 生长的分类:自动攒出的新分类候选 + 批量采纳一簇
-  themeCandidates: (min = 3) => req(`/stats/theme-candidates?min=${min}`),
-  adoptThemeCluster: (theme) =>
-    req('/stats/theme-candidates/adopt', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ theme }),
-    }),
 
   // 清库仪式:AI 判为无信息量的
   cleanupSuggestions: () => req('/items/cleanup'),

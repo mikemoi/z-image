@@ -46,8 +46,13 @@ async def overview():
                ) x WHERE main_topic IS NOT NULL GROUP BY main_topic ORDER BY c DESC"""
         ).fetchall()
         source_rows = conn.execute(
-            """SELECT source AS name, count(*) AS c FROM core.entries
-               WHERE deleted_at IS NULL AND source IS NOT NULL GROUP BY source"""
+            """SELECT source AS name, count(*) AS c FROM (
+                   SELECT COALESCE(source, '截图') AS source
+                   FROM image.items WHERE deleted_at IS NULL
+                   UNION ALL
+                   SELECT COALESCE(source, CASE WHEN source_item_id IS NULL THEN '自己' ELSE '截图' END) AS source
+                   FROM core.entries WHERE deleted_at IS NULL
+               ) x WHERE source IS NOT NULL GROUP BY source"""
         ).fetchall()
         status_rows = conn.execute(
             """SELECT state AS name, count(*) AS c FROM (
@@ -72,12 +77,10 @@ async def overview():
     }
     if kinds.get("memo", 0):
         contents["近日"] = kinds["memo"]
-    sources = _dict(source_rows)
-    sources["截图"] = sources.get("截图", 0) + screenshots
     total = screenshots + sum(kinds.values())
     return OverviewStats(
         total=total, contents=contents, entry_types=_dict(type_rows),
-        domains=_dict(domain_rows), main_topics=_dict(topic_rows), sources=sources,
+        domains=_dict(domain_rows), main_topics=_dict(topic_rows), sources=_dict(source_rows),
         classify_statuses=_dict(status_rows),
     )
 

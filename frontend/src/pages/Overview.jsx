@@ -49,7 +49,7 @@ export default function Overview() {
           <StatSection title="内容" values={stats.contents} />
           <StatSection title="类型" values={stats.entry_types} order={ORDERS.entry_types} />
           <StatSection title="领域" values={stats.domains} order={ORDERS.domains} />
-          <StatSection title="主主题" values={stats.main_topics} order={ORDERS.main_topics} />
+          <StatSection title="主轴" values={stats.main_topics} order={ORDERS.main_topics} />
           <StatSection title="来源" values={stats.sources} order={ORDERS.sources} />
           <StatSection title="分类状态" values={stats.classify_statuses} order={['已分类', '待分类', '分类失败']} />
         </>

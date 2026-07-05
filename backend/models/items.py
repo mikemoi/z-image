@@ -1,7 +1,9 @@
 """items 相关的响应/请求模型。第二步只需基础字段。"""
 from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
-from models.entries import TOPICS_BY_DOMAIN
+from models.entries import (
+    EntryType, Domain, FixedTopic, validate_topic_tree_values,
+)
 
 
 class UploadResult(BaseModel):
@@ -20,10 +22,10 @@ class ItemBrief(BaseModel):
     theme: str | None = None
     use_tag: str | None = None
     granularity: str | None = None
-    entry_type: str | None = None
-    domain: str | None = None
-    main_topic: str | None = None
-    related_topics: list[str] | None = None
+    entry_type: EntryType | None = None
+    domain: Domain | None = None
+    main_topic: FixedTopic | None = None
+    related_topics: list[FixedTopic] | None = None
     tags: list[str] | None = None
     source: str = "截图"
     topics: list[str] | None = None
@@ -56,24 +58,17 @@ class ItemUpdate(BaseModel):
     use_tag: str | None = None
     status: str | None = None
     granularity: str | None = None
-    entry_type: str | None = None
-    domain: str | None = None
-    main_topic: str | None = None
-    related_topics: list[str] | None = Field(default=None, max_length=2)
+    entry_type: EntryType | None = None
+    domain: Domain | None = None
+    main_topic: FixedTopic | None = None
+    related_topics: list[FixedTopic] | None = Field(default=None, max_length=2)
     tags: list[str] | None = Field(default=None, max_length=5)
     topics: list[str] | None = None
     highlights: list[str] | None = None
 
     @model_validator(mode="after")
     def validate_topic_tree(self):
-        fixed_topics = {topic for values in TOPICS_BY_DOMAIN.values() for topic in values}
-        if self.domain and self.main_topic and self.main_topic not in TOPICS_BY_DOMAIN.get(self.domain, set()):
-            raise ValueError("main_topic 必须属于所选 domain")
-        related = self.related_topics or []
-        if any(topic not in fixed_topics for topic in related):
-            raise ValueError("related_topics 只能使用固定主题")
-        if len(related) != len(set(related)) or (self.main_topic and self.main_topic in related):
-            raise ValueError("related_topics 不能重复或包含 main_topic")
+        validate_topic_tree_values(self.domain, self.main_topic, self.related_topics)
         return self
 
 

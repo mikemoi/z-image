@@ -15,17 +15,17 @@
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST | `/upload` | multipart `images[]`；落盘和建 item 后立即返回，不等 AI |
-| GET | `` | `status/theme/use/granularity/promoted/deleted/limit/offset` 筛选 |
+| GET | `` | 支持 `entry_type/domain/main_topic/tag/source` 新分类筛选；`status/theme/use/granularity/deleted/limit/offset` 仅兼容旧链路 |
 | GET | `/{id}` | 详情，含原图 checksum、OCR 与统一分类字段 |
 | PATCH | `/{id}` | 修改新分类字段；旧 theme/use_tag/topics 继续兼容 |
 | GET | `/review-queue?limit=10` | 集中批阅队列；支持 `entry_type/domain/main_topic/tag/source` 筛选 |
-| GET | `/review-facets` | 集中批阅未阅内容的类型、领域、主主题、来源、标签计数 |
+| GET | `/review-facets` | 集中批阅未阅内容的类型、领域、主轴、来源、标签计数 |
 | POST | `/{id}/reclassify` | 只重跑统一分类，不重跑 OCR，保留人工重点 |
 | GET | `/recommendations?limit=10` | 今日推荐队列；优先返回较久未看的截图 |
 | POST | `/{id}/process` | 同步跑 Vision，调试用，会真实调用 AI |
 | POST | `/{id}/reprocess` | 清 Vision 结果并回到 review |
 | POST | `/{id}/insight` | 问问 AI；`refresh=true` 强制重算，否则使用缓存 |
-| POST | `/{id}/adopt-theme` | 采纳旧 theme 生长建议 |
+| POST | `/{id}/adopt-theme` | 兼容旧 theme 生长建议；当前页面主线不再使用 |
 | GET | `/cleanup` | 返回 AI 判为无信息量的清库候选 |
 | PATCH | `/{id}/review` | 标记已看 |
 | PATCH | `/{id}/promote` | knowledge 切块进入 core.knowledge |
@@ -93,10 +93,10 @@ Entry 响应包含：`entry_type/domain/main_topic/related_topics/tags/source/hi
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/stats/dimensions` | 旧 theme/use 维度计数 |
-| GET | `/api/stats/overview` | “我的 → 数据概览”；统计内容、类型、领域、主主题、来源和分类状态 |
-| GET | `/api/stats/theme-candidates` | 聚合旧 suggested_theme |
-| POST | `/api/stats/theme-candidates/adopt` | 批量采纳旧 theme 候选 |
+| GET | `/api/stats/dimensions` | 兼容旧 theme/use 维度计数；当前统计主线用 overview |
+| GET | `/api/stats/overview` | “我的 → 数据概览”；统计内容、类型、领域、主轴、来源和分类状态 |
+| GET | `/api/stats/theme-candidates` | 兼容旧 suggested_theme 聚合；当前页面主线不再使用 |
+| POST | `/api/stats/theme-candidates/adopt` | 兼容旧 theme 候选批量采纳 |
 | GET | `/api/search?q=` | 搜索截图标题/摘要/OCR 与 Entry 正文 |
 | GET | `/api/feed/resurface` | 轮换 core.notes |
 | PATCH | `/api/feed/notes/{id}/soft-delete` | 软删碎片 |

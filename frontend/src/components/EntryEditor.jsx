@@ -70,11 +70,11 @@ export default function EntryEditor({ entry, showDate = false, showMood = false,
         }}>
           <option value="">未分类</option>{DOMAINS.map((v) => <option key={v}>{v}</option>)}
         </select></label>
-        <label>主主题<select value={draft.main_topic} onChange={(e) => set('main_topic', e.target.value)} disabled={!draft.domain}>
+        <label>主轴<select value={draft.main_topic} onChange={(e) => set('main_topic', e.target.value)} disabled={!draft.domain}>
           <option value="">未分类</option>{(TOPICS_BY_DOMAIN[draft.domain] || []).map((v) => <option key={v}>{v}</option>)}
         </select></label>
       </div>
-      <label>相关主题（最多 2 个）</label>
+      <label>关联（最多 2 个）</label>
       <div className="entry-editor-grid related-selects">
         {[0, 1].map((index) => <select key={index} value={draft.related_topics[index] || ''}
           onChange={(e) => setRelated(index, e.target.value)}>

@@ -12,6 +12,7 @@ from auth import require_token
 from db import get_conn
 from models.entries import (
     EntryCreate, EntryUpdate, Entry, FileEntry, FileResult, KINDS,
+    validate_topic_tree_values,
 )
 from models.items import OkResult
 
@@ -141,7 +142,8 @@ async def reclassify(entry_id: int):
             """UPDATE core.entries
                SET entry_type=NULL, domain=NULL, main_topic=NULL,
                    related_topics=NULL, tags=NULL,
-                   ai_classify_status='pending', updated_at=now()
+                   ai_classify_status='pending', ai_classified_at=NULL,
+                   ai_classify_output=NULL, updated_at=now()
                WHERE id=%s AND deleted_at IS NULL RETURNING id""",
             (entry_id,),
         ).fetchone()
@@ -258,6 +260,23 @@ async def update_entry(entry_id: int, patch: EntryUpdate):
     fields = {k: v for k, v in patch.model_dump(exclude_unset=True).items()}
     if not fields:
         raise HTTPException(400, "no fields to update")
+    if fields.keys() & {"domain", "main_topic", "related_topics"}:
+        with get_conn() as conn:
+            current = conn.execute(
+                """SELECT domain, main_topic, related_topics FROM core.entries
+                   WHERE id = %s AND deleted_at IS NULL""",
+                (entry_id,),
+            ).fetchone()
+        if not current:
+            raise HTTPException(404, "entry not found")
+        try:
+            validate_topic_tree_values(
+                fields.get("domain", current["domain"]),
+                fields.get("main_topic", current["main_topic"]),
+                fields.get("related_topics", current["related_topics"]),
+            )
+        except ValueError as e:
+            raise HTTPException(422, str(e))
     for name in ("related_topics", "tags", "topics"):
         if name in fields and fields[name] is not None:
             fields[name] = Jsonb(fields[name])

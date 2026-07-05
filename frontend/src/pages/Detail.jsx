@@ -5,6 +5,7 @@ import Img from '../components/Img'
 import Icon from '../components/Icon'
 import HighlightText from '../components/HighlightText'
 import HighlightControls from '../components/HighlightControls'
+import ClassificationMeta from '../components/ClassificationMeta'
 import { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN, ALL_TOPICS } from '../classification'
 
 function asDraft(item) {
@@ -45,13 +46,6 @@ export default function Detail() {
       setAsking(false)
     }
   }
-  async function adoptTheme(theme) {
-    const updated = await api.adoptTheme(item.id, theme)
-    setItem(updated); setDraft(asDraft(updated))
-    setInsight({ ...insight, suggested_theme: null, suggested_theme_reason: null })
-    setMsg(`已归入「${theme}」✓`)
-  }
-
   if (item === false) return <div className="page"><div className="empty-hint">条目不存在</div></div>
   if (!item) return <div className="page"><div className="empty-hint">加载中…</div></div>
 
@@ -118,13 +112,6 @@ export default function Detail() {
                 {insight.quality_note && <span> · {insight.quality_note}</span>}
               </div>
             )}
-            {insight.suggested_theme && (
-              <div className="ai-suggest">
-                <span>建议新分类:「{insight.suggested_theme}」</span>
-                {insight.suggested_theme_reason && <em> {insight.suggested_theme_reason}</em>}
-                <button className="ai-adopt" onClick={() => adoptTheme(insight.suggested_theme)}>采用</button>
-              </div>
-            )}
             <button className="ai-again" onClick={() => ask(true)} disabled={asking}>
               {asking ? '…' : '重新问'}
             </button>
@@ -132,19 +119,8 @@ export default function Detail() {
         )}
       </div>
 
-      <div className="detail-tags">
-        {item.entry_type && <span className="tag tag-gran">{item.entry_type}</span>}
-        {item.domain && <span className="tag tag-theme">{item.domain}</span>}
-        {item.main_topic && <span className="tag tag-use">{item.main_topic}</span>}
-        {item.ai_classify_status == null && item.status === 'ok' && <span className="tag tag-review">AI 分类中</span>}
-        {item.status === 'review' && <span className="tag tag-review">待处理</span>}
-      </div>
-      {item.related_topics?.length > 0 && <div className="class-related">相关：{item.related_topics.join(' / ')}</div>}
-      {(item.tags || item.topics)?.length > 0 && (
-        <div className="class-topics" style={{ margin: '0 2px 8px' }}>
-          {(item.tags || item.topics).map((t) => <span key={t}>#{t}</span>)}
-        </div>
-      )}
+      {item.status === 'review' && <div className="detail-tags"><span className="tag tag-review">待处理</span></div>}
+      <ClassificationMeta entry={item} />
 
       {item.summary && (
         <div className="detail-block">
@@ -184,11 +160,11 @@ export default function Detail() {
             const domain = e.target.value
             setDraft({ ...draft, domain, main_topic: (TOPICS_BY_DOMAIN[domain] || []).includes(draft.main_topic) ? draft.main_topic : '' })
           }}><option value="">未分类</option>{DOMAINS.map((v) => <option key={v}>{v}</option>)}</select>
-          <label>主主题</label><select value={draft.main_topic || ''} disabled={!draft.domain}
+          <label>主轴</label><select value={draft.main_topic || ''} disabled={!draft.domain}
             onChange={(e) => setDraft({ ...draft, main_topic: e.target.value })}>
             <option value="">未分类</option>{(TOPICS_BY_DOMAIN[draft.domain] || []).map((v) => <option key={v}>{v}</option>)}
           </select>
-          <label>相关主题</label>
+          <label>关联</label>
           <div className="entry-editor-grid related-selects">{[0, 1].map((index) => <select key={index}
             value={draft.related_topics?.[index] || ''} onChange={(e) => {
               const next = [...(draft.related_topics || [])]
@@ -215,7 +191,7 @@ export default function Detail() {
 
       {/* 人工操作与 AI 重分类分开；精选入口已取消。 */}
       <div className="detail-actions">
-        <button className="act" onClick={() => setEditing((v) => !v)}>{editing ? '取消' : '标签'}</button>
+        <button className="act" onClick={() => setEditing((v) => !v)}>{editing ? '取消' : '编辑'}</button>
         {(item.clean_text || item.raw_text) && <button className="act" onClick={() => {
           setMarkDraft(Array.isArray(item.highlights) ? item.highlights : []); setMarking((v) => !v)
         }}>{marking ? '取消重点' : '标重点'}</button>}

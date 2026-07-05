@@ -98,7 +98,7 @@ class ClassificationContractTests(unittest.TestCase):
 
     def test_related_topics_and_tags_have_limits(self):
         with self.assertRaises(ValidationError):
-            EntryCreate(body="过多相关主题", related_topics=["ADHD", "睡眠", "情绪"])
+            EntryCreate(body="过多关联", related_topics=["ADHD", "睡眠", "情绪"])
         with self.assertRaises(ValidationError):
             EntryCreate(body="过多标签", tags=["一", "二", "三", "四", "五", "六"])
 

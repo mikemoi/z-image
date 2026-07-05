@@ -24,14 +24,20 @@ TOPICS_BY_DOMAIN = {
 }
 
 
-def _validate_topics(domain, main_topic, related_topics):
+def validate_topic_tree_values(domain, main_topic, related_topics):
+    """统一分类树校验：主轴必须属于领域，关联只能是固定主轴且不重复。"""
+    fixed_topics = {topic for values in TOPICS_BY_DOMAIN.values() for topic in values}
+    if domain and domain not in TOPICS_BY_DOMAIN:
+        raise ValueError("domain 必须是固定领域")
     if domain and main_topic and main_topic not in TOPICS_BY_DOMAIN[domain]:
-        raise ValueError("main_topic 必须属于所选 domain")
+        raise ValueError("主轴必须属于所选领域")
     related = related_topics or []
+    if any(topic not in fixed_topics for topic in related):
+        raise ValueError("关联只能使用固定主轴")
     if len(related) != len(set(related)):
-        raise ValueError("related_topics 不能重复")
+        raise ValueError("关联不能重复")
     if main_topic and main_topic in related:
-        raise ValueError("related_topics 不能包含 main_topic")
+        raise ValueError("关联不能包含主轴")
 
 
 class EntryCreate(BaseModel):
@@ -52,7 +58,7 @@ class EntryCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_topic_tree(self):
-        _validate_topics(self.domain, self.main_topic, self.related_topics)
+        validate_topic_tree_values(self.domain, self.main_topic, self.related_topics)
         return self
 
 
@@ -74,7 +80,7 @@ class EntryUpdate(BaseModel):
 
     @model_validator(mode="after")
     def validate_topic_tree(self):
-        _validate_topics(self.domain, self.main_topic, self.related_topics)
+        validate_topic_tree_values(self.domain, self.main_topic, self.related_topics)
         return self
 
 

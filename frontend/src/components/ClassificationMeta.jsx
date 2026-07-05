@@ -13,7 +13,7 @@ export default function ClassificationMeta({ entry, actions }) {
 
   return (
     <div className="class-meta">
-      {related.length > 0 && <div className="class-related">相关：{related.join(' / ')}</div>}
+      {related.length > 0 && <div className="class-related">关联：{related.join(' / ')}</div>}
       {tags.length > 0 && (
         <div className="class-topics">{tags.map((t) => <span key={t}>#{t}</span>)}</div>
       )}

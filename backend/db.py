@@ -29,7 +29,7 @@ def ensure_schema():
     全部 IF NOT EXISTS,幂等安全。"""
     with get_conn() as conn:
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS ai_insight JSONB")
-        # 固定主题树分类也用于截图；旧 theme/use_tag/topics 仅兼容保留。
+        # 固定主轴树分类也用于截图；旧 theme/use_tag/topics 仅兼容保留。
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS entry_type TEXT")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS domain TEXT")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS main_topic TEXT")

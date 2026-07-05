@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom'
 import Img from './Img'
+import ClassificationMeta from './ClassificationMeta'
 
-// 列表卡片:大缩略图 + title + 标签 + summary + 删除。
+// 列表卡片:大缩略图 + title + 统一分类 + summary + 删除。
 export default function ItemCard({ item, onDelete, actionLabel = '删除' }) {
   const nav = useNavigate()
   const go = () => nav(`/item/${item.id}`)
@@ -13,16 +14,8 @@ export default function ItemCard({ item, onDelete, actionLabel = '删除' }) {
       </div>
       <div className="card-body" onClick={go}>
         {item.title && <div className="card-title">{item.title}</div>}
-        <div className="card-tags">
-          {item.entry_type && <span className="tag tag-gran">{item.entry_type}</span>}
-          {item.domain && <span className="tag tag-theme">{item.domain}</span>}
-          {item.main_topic && <span className="tag tag-use">{item.main_topic}</span>}
-          {item.status === 'review' && <span className="tag tag-review">待处理</span>}
-        </div>
-        {item.related_topics?.length > 0 && <div className="class-related">相关：{item.related_topics.join(' / ')}</div>}
-        {(item.tags || item.topics)?.length > 0 && <div className="class-topics">
-          {(item.tags || item.topics).map((tag) => <span key={tag}>#{tag}</span>)}
-        </div>}
+        {item.status === 'review' && <span className="tag tag-review">待处理</span>}
+        <ClassificationMeta entry={item} />
         {item.summary && <div className="card-summary">{item.summary}</div>}
       </div>
       <button

@@ -21,7 +21,7 @@ from models.items import (
     ItemUpdate, DimensionStats, PromoteResult, NoteResult,
     InsightResult, AdoptTheme,
 )
-from models.entries import CleanupItem
+from models.entries import CleanupItem, validate_topic_tree_values
 
 router = APIRouter(prefix="/api/items", tags=["items"], dependencies=[Depends(require_token)])
 
@@ -491,11 +491,16 @@ async def list_items(
     theme: str | None = Query(default=None),
     use: str | None = Query(default=None),
     granularity: str | None = Query(default=None),
+    entry_type: str | None = Query(default=None),
+    domain: str | None = Query(default=None),
+    main_topic: str | None = Query(default=None),
+    tag: str | None = Query(default=None),
+    source: str | None = Query(default=None),
     deleted: bool = Query(default=False),
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
 ):
-    """列表筛选。deleted=false 只看正常项;deleted=true 看回收站。"""
+    """列表筛选。新分类筛选优先使用 entry_type/domain/main_topic/tag/source；旧 theme/use 仅兼容。"""
     where = ["i.deleted_at IS NOT NULL"] if deleted else ["i.deleted_at IS NULL"]
     params: list = []
     for col, val in (("i.status", status), ("i.theme", theme),
@@ -503,6 +508,17 @@ async def list_items(
         if val is not None:
             where.append(f"{col} = %s")
             params.append(val)
+    for col, val in (("i.entry_type", entry_type), ("i.domain", domain),
+                     ("i.main_topic", main_topic)):
+        if val is not None:
+            where.append(f"{col} = %s")
+            params.append(val)
+    if source is not None:
+        where.append("COALESCE(i.source, '截图') = %s")
+        params.append(source)
+    if tag is not None:
+        where.append("COALESCE(i.tags, i.topics) @> %s")
+        params.append(Jsonb([tag]))
     where_sql = " AND ".join(where)
 
     with get_conn() as conn:
@@ -569,10 +585,27 @@ _UPDATABLE = {"title", "theme", "use_tag", "status", "granularity",
 
 @router.patch("/{item_id}", response_model=ItemDetail)
 async def update_item(item_id: int, patch: ItemUpdate):
-    """改标签:更新可编辑字段(含 5 维分类)。人工改分类维度则不再被自动分类覆盖。"""
+    """改标签:更新可编辑字段(含六格分类字段)。人工改分类维度则不再被自动分类覆盖。"""
     fields = {k: v for k, v in patch.model_dump(exclude_unset=True).items() if k in _UPDATABLE}
     if not fields:
         raise HTTPException(400, "no updatable fields provided")
+    if fields.keys() & {"domain", "main_topic", "related_topics"}:
+        with get_conn() as conn:
+            current = conn.execute(
+                """SELECT domain, main_topic, related_topics FROM image.items
+                   WHERE id = %s AND deleted_at IS NULL""",
+                (item_id,),
+            ).fetchone()
+        if not current:
+            raise HTTPException(404, "item not found")
+        try:
+            validate_topic_tree_values(
+                fields.get("domain", current["domain"]),
+                fields.get("main_topic", current["main_topic"]),
+                fields.get("related_topics", current["related_topics"]),
+            )
+        except ValueError as e:
+            raise HTTPException(422, str(e))
     for name in ("related_topics", "tags", "topics"):
         if name in fields:
             fields[name] = Jsonb(fields[name]) if fields[name] is not None else None

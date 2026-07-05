@@ -14,7 +14,7 @@ npm run build
 `backend/tests/test_classification.py` 不连接数据库、不调用 OpenRouter，覆盖：
 
 - 固定类型、领域、主题枚举与领域/主题归属规则。
-- related_topics 最多 2 个，tags 最多 5 个。
+- 关联 related_topics 最多 2 个，tags 最多 5 个。
 - Entry 请求模型枚举校验。
 - `source_item_id` 有无对应“截图/自己”的服务端规则。
 - 人工修改分类后锁定 AI 状态。
@@ -30,7 +30,7 @@ npm run build
 4. 从截图详情创建想法，确认 `source=截图`。
 5. 人工改分类，确认状态为 done 且 Worker 不覆盖。
 6. 调 reclassify，确认字段清空、状态 pending。
-7. 上传测试图，确认分类 Worker 补 `entry_type/domain/main_topic/related_topics/tags`。
+7. 上传测试图，确认分类 Worker 补 `entry_type/domain/main_topic(主轴)/related_topics(关联)/tags`。
 8. 删除全部测试数据和测试文件。
 
 ## 真实 AI 验收

@@ -13,7 +13,7 @@ export const ALL_TOPICS = Object.values(TOPICS_BY_DOMAIN).flat()
 
 export const CLASSIFICATION_SECTIONS = [
   {
-    title: '类型 = 这是什么',
+    title: '类型 = 它是什么',
     items: [
       ['想法', '我的理解、判断、感悟'], ['句子', '我认可并想保存的一句话'],
       ['规则', '以后要执行的行为准则'], ['决策', '已经确定的选择'],
@@ -22,7 +22,7 @@ export const CLASSIFICATION_SECTIONS = [
     ],
   },
   {
-    title: '领域 = 属于人生哪个大模块',
+    title: '领域 = 属于哪个大区',
     items: [
       ['身心', '身体、大脑、情绪、ADHD、药物、运动、睡眠、健康'],
       ['生活', '马德里、居住、证件、合同、关系、家庭、日常、办事'],
@@ -32,7 +32,7 @@ export const CLASSIFICATION_SECTIONS = [
     ],
   },
   {
-    title: '主主题 = 这条内容主要讲什么',
+    title: '主轴 = 主要归哪里',
     items: Object.entries(TOPICS_BY_DOMAIN).map(([domain, topics]) => [domain, topics.join(' / ')]),
   },
 ]

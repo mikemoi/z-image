@@ -5,8 +5,9 @@ import { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN } from '../classification'
 import Img from '../components/Img'
 import HighlightText from '../components/HighlightText'
 import Icon from '../components/Icon'
+import ClassificationMeta from '../components/ClassificationMeta'
 
-const FILTER_LABEL = { entry_type: '类型', domain: '领域', main_topic: '主主题', tag: '标签', source: '来源' }
+const FILTER_LABEL = { entry_type: '类型', domain: '领域', main_topic: '主轴', tag: '标签', source: '来源' }
 const SOURCES = ['自己', '截图', '文件']
 
 function FacetGroup({ title, field, values, counts, onPick }) {
@@ -134,7 +135,7 @@ export default function ReviewSession() {
       <FacetGroup title="类型" field="entry_type" values={ENTRY_TYPES} counts={facets.entry_types} onPick={pickCategory} />
       <FacetGroup title="领域" field="domain" values={DOMAINS} counts={facets.domains} onPick={pickCategory} />
       {Object.entries(TOPICS_BY_DOMAIN).map(([domain, topics]) => <FacetGroup key={domain}
-        title={`${domain} · 主主题`} field="main_topic" values={topics}
+        title={`${domain} · 主轴`} field="main_topic" values={topics}
         counts={facets.main_topics} onPick={pickCategory} />)}
       <FacetGroup title="来源" field="source" values={SOURCES} counts={facets.sources} onPick={pickCategory} />
       <FacetGroup title="常用标签" field="tag"
@@ -173,14 +174,10 @@ export default function ReviewSession() {
               </div>}
               {aiError && <div className="banner-error">{aiError}</div>}
             </div>
-            {detail.related_topics?.length > 0 && <div className="class-related">相关：{detail.related_topics.join(' / ')}</div>}
-            {(detail.tags || detail.topics)?.length > 0 && <div className="class-topics">
-              {(detail.tags || detail.topics).map((t) => <span key={t}>#{t}</span>)}</div>}
-            <div className="review-class-row"><div className="class-summary">
-              {[detail.entry_type, detail.domain, detail.main_topic, detail.source || '截图'].filter(Boolean).join(' · ') || '未分类'}
-            </div><button onClick={reclassify} disabled={classifying || detail.ai_classify_status === 'pending'}>
+            <ClassificationMeta entry={detail} actions={<button onClick={reclassify}
+              disabled={classifying || detail.ai_classify_status === 'pending'}>
               {classifying || detail.ai_classify_status === 'pending' ? '分类中…' : '重新分类'}
-            </button></div>
+            </button>} />
           </div>
           <textarea className="capture-input" rows={2} value={idea} onChange={(e) => setIdea(e.target.value)} placeholder="写想法" />
           <div className="review-actions">

@@ -3,6 +3,8 @@
 > 写给下一个接手的工程师。目标:读完这份 + `docs/` 其余几份,就能独立继续开发、部署、排障。
 > 深度细节分散在:[FRAMEWORK.md](FRAMEWORK.md)(产品北极星)、[STATUS.md](STATUS.md)(现状快照)、[BLOCKS.md](BLOCKS.md)(板块施工)、[DATABASE.md](DATABASE.md)(数据字典)、[API.md](API.md)、[CHANGELOG.md](CHANGELOG.md)。本文件是总入口。
 
+> **最新未开工交接重点**:用户在 2026-07-06 追加了“最终内容坐标 + 子题 + 候选机制 + 重新整理 + 时间线 + 搜索范围”的完整需求。当前源码还没有实现这批最终需求；详情先读 [NEXT_HANDOFF_CLASSIFICATION.md](NEXT_HANDOFF_CLASSIFICATION.md)。当前工作区还有一批未提交的中间版分类一致性改动，不要误当最终完成版。
+
 ---
 
 ## 0. 一句话:这是什么
@@ -30,7 +32,7 @@ backend/
   db.py           连接池 + ensure_schema()(运行时幂等迁移)
   auth.py         单用户 Bearer token 鉴权
   vision.py       call_vision(截图自动分析)+ call_insight(问问AI)+ _chat_image
-  classify.py     call_classify(文字/截图 5 维分类)+ 固定枚举 prompt + normalize 校验
+  classify.py     call_classify(文字/截图六格分类中的五格,source 由入口定)+ 固定枚举 prompt + normalize 校验
   clean.py        OCR 文本机械清洗
   worker.py       两个后台循环:_loop(Vision)+ _classify_loop(分类);预算 0=不限
   settings_store.py  core.settings kv:ocr_model/insight_model/classify_model 运行时切换
@@ -60,7 +62,7 @@ docker-compose.yml  db(postgres:17)+ backend
 - `sources`:来源登记(origin_schema/table/id),知识/碎片/想法归位时挂。
 - `knowledge`:精选脑,有 `body_tsv`(全文检索),可搜。
 - `notes`:碎片收集箱,`last_seen_at` 支撑"重新遇见"。
-- `tags` / `knowledge_tags`:theme/use 标签,theme 可生长。
+- `tags` / `knowledge_tags`:旧 theme/use 标签表，保留给历史知识链路兼容。
 - `entries`:**文字入口**。`kind ∈ {idea,log,plan}`(想法/日志/计划;已废弃 note/clip)。
   关键列:`body, source_item_id(来源截图), theme, promoted_at`,
   **统一分类**:`entry_type, domain, main_topic, related_topics(JSONB), tags(JSONB), source`,
@@ -70,8 +72,8 @@ docker-compose.yml  db(postgres:17)+ backend
 
 **`image`(z-image 入口)**
 - `files`:原图事实源,只增不改(用户删手机后是唯一副本)。
-- `items`:条目。Vision 打:`title/theme/use_tag/granularity/summary/is_ocr_suitable`,
-  JSONB:`ai_output`(含 suggested_theme/quality)、`ai_insight`(问问AI缓存),
+- `items`:条目。Vision 仍打旧兼容字段:`title/theme/use_tag/granularity/summary/is_ocr_suitable`,
+  JSONB:`ai_output`(含旧 suggested_theme/quality)、`ai_insight`(问问AI缓存),
   **统一分类(新)**:`entry_type/domain/main_topic/related_topics/tags/source/ai_classify_status/ai_classified_at`。
 - `contents`:OCR 正文(raw_text/clean_text)。
 
@@ -81,14 +83,14 @@ docker-compose.yml  db(postgres:17)+ backend
 
 ## 3. 统一分类体系（核心约定）
 
-主分类路径是领域 → 主主题；相关主题解决交叉，标签补细节。枚举变更至少同步后端模型、`classify.py`、前端 `classification.js`、文档和测试。
+主分类路径是领域 → 主轴；关联解决交叉，标签补细节。枚举变更至少同步后端模型、`classify.py`、前端 `classification.js`、文档和测试。
 
 | 维度 | 字段 | 固定值 |
 |---|---|---|
 | 类型 | `entry_type` | 想法/句子/规则/决策/知识/资料/记录 |
 | 领域 | `domain` | 身心/生活/能力/财务/方向 |
-| 主主题 | `main_topic` | 对应领域下固定六选一 |
-| 相关主题 | `related_topics` | 固定主题数组，最多 2 个 |
+| 主轴 | `main_topic` | 对应领域下固定六选一 |
+| 关联 | `related_topics` | 固定主轴数组，最多 2 个 |
 | 标签 | `tags` | 细节关键词，最多 5 个；他人经验属于标签 |
 | 来源 | `source` | 自己/截图/文件(只表进入方式,不表可信度)|
 
@@ -100,9 +102,9 @@ docker-compose.yml  db(postgres:17)+ backend
 
 | 管线 | 函数 | 模型设置 | 触发 | 产出 |
 |---|---|---|---|---|
-| **消化/OCR** | `vision.call_vision` | `ocr_model` | 上传后 worker `_loop` 自动 | title/theme/use_tag/granularity/summary/quality/suggested_theme + OCR |
+| **消化/OCR** | `vision.call_vision` | `ocr_model` | 上传后 worker `_loop` 自动 | title/theme/use_tag/granularity/summary/quality/suggested_theme + OCR（旧兼容字段） |
 | **自动分类** | `classify.call_classify` | `classify_model` | worker `_classify_loop` 自动(entries + items) | entry_type/domain/main_topic/related_topics/tags/highlights |
-| **问问AI** | `vision.call_insight` | `insight_model` | 详情页按需点击 | explanation/quality/quality_note/suggested_theme(缓存 `ai_insight`) |
+| **问问AI** | `vision.call_insight` | `insight_model` | 详情页按需点击 | explanation/quality/quality_note；旧 suggested_theme 仍可能缓存但前端不作为分类入口 |
 
 **worker.py 两个循环并行**:`_loop`(Vision 处理 review 的 items)、`_classify_loop`(分类 pending 的 entries + ok 未分类的 items)。都受 `_take_budget()`,`VISION_DAILY_BUDGET<=0` 视为不限。Vision 按 `_attempts` 自动重试；统一分类失败置 `failed`，不会自动再捞，需 reclassify。
 **人工优先**:用户手改任一分类维度 → 后端置 `ai_classify_status='done'`,worker 不再覆盖。`reclassify` 端点清空 + 置 pending 重跑。
@@ -112,9 +114,10 @@ docker-compose.yml  db(postgres:17)+ backend
 ## 5. 前端要点
 
 - **导航 5 tab**:首页 / 上传 / 想法 / 记录 / 我的。我的包含集中批阅、数据概览、AI 设置、长期计划、回收站和分类说明；个人项目不提供退出登录入口。
-- **详情页操作**:“问问 AI”独立于编辑；标签 / 标重点 / 重新分类 / 删除到回收站 + 我的想法输入。前端已取消精选，后端兼容端点保留。
+- **分类浏览 / 集中批阅**:外露入口统一使用 `entry_type/domain/main_topic/source`；标签只作为细分关键词，不再把旧 theme/use 作为页面分类。
+- **详情页操作**:“问问 AI”独立于编辑；编辑 / 标重点 / 重新分类 / 删除到回收站 + 我的想法输入。前端已取消精选，后端兼容端点保留。
 - **想法/日志/长期计划**:先保存并由 AI 自动处理；普通卡片提供独立“标重点”和“编辑”。`EntryEditor` 只修改正文和分类，不放 AI 操作。想法页不再显示精选按钮，后端 promote/reclassify 仅兼容旧能力。
-- **集中批阅**:连续逐张模式与按分类模式并存；分类入口按类型、领域、各领域固定主主题、来源和高频标签展示未阅数量。
+- **集中批阅**:连续逐张模式与按分类模式并存；分类入口按类型、领域、各领域固定主轴、来源和高频标签展示未阅数量。
 - **主题风格**:暖纸底 + 墨青主色 + 线性 SVG 图标(`components/Icon.jsx`),CSS 变量在 `styles.css :root`。
 - **鉴权**:`TokenGate` + token 存 localStorage,`api.js` 每请求带 `Authorization: Bearer`。
 
@@ -123,7 +126,7 @@ docker-compose.yml  db(postgres:17)+ backend
 ## 6. 当前状态 / 待办 / 已知问题
 
 ### 已完成(v0.3 主体)
-捕捉、消化、问问AI、搜索、回收站、今日推荐、集中批阅、重点标注、文字入口、**固定主题树分类 + AI 自动归类**、AI 设置独立页。
+捕捉、消化、问问AI、搜索、回收站、今日推荐、集中批阅、重点标注、文字入口、**固定主轴树分类 + AI 自动归类**、AI 设置独立页。
 
 ### 待办(非向量,按优先级)
 1. **首页整理**:首页偏杂,尚未收拾(上下文原因暂停)。需先问用户"哪里最碍眼"再动。

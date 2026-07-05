@@ -27,8 +27,8 @@
 | `theme`(主题) | `trading` `ai` `adhd` `language` `life` `other` | 预置六类;**可生长**(用户采纳 AI 建议后新增,如"运动") |
 | 统一类型 | `想法` `句子` `规则` `决策` `知识` `资料` `记录` | 内容是什么 |
 | 统一领域 | `身心` `生活` `能力` `财务` `方向` | 固定大领域 |
-| `main_topic` | 各领域固定六个主题 | 主主题，单选且必须属于 domain |
-| `related_topics` | JSONB 固定主题数组 | 相关主题，最多 2 个 |
+| `main_topic` | 各领域固定六个主题 | 主轴，单选且必须属于 domain |
+| `related_topics` | JSONB 固定主轴数组 | 关联，最多 2 个 |
 | `tags` | JSONB 字符串数组 | 细节标签，最多 5 个；“他人经验”属于标签 |
 | `use_tag/topics` | 旧字段 | 仅兼容保留，不再作为新分类核心 |
 | `source` | `自己` `截图` `文件` | 进入方式，不表示可信度 |
@@ -123,8 +123,8 @@
 | `promoted_at` | TIMESTAMPTZ | 想法精选入脑时间 |
 | `entry_type` | TEXT | 类型：想法/句子/规则/决策/知识/资料/记录 |
 | `domain` | TEXT | 领域：身心/生活/能力/财务/方向 |
-| `main_topic` | TEXT | 对应领域下的固定主主题 |
-| `related_topics` | JSONB | 固定相关主题数组，最多 2 个 |
+| `main_topic` | TEXT | 对应领域下的固定主轴 |
+| `related_topics` | JSONB | 关联数组，最多 2 个 |
 | `tags` | JSONB | 细节标签数组，最多 5 个 |
 | `use_tag` | TEXT | 旧用途字段，兼容保留 |
 | `source` | TEXT | 自己/截图/文件；创建时由服务端推断 |
@@ -176,8 +176,8 @@
 | `ai_insight` | JSONB | 「问问 AI」按需生成的看法缓存(v0.3,见下方结构) |
 | `entry_type` | TEXT | 统一分类类型 |
 | `domain` | TEXT | 统一分类领域 |
-| `main_topic` | TEXT | 固定主主题 |
-| `related_topics` | JSONB | 固定相关主题数组，最多 2 个 |
+| `main_topic` | TEXT | 固定主轴 |
+| `related_topics` | JSONB | 关联数组，最多 2 个 |
 | `tags` | JSONB | 细节标签数组，最多 5 个 |
 | `source` | TEXT | 默认截图 |
 | `topics` | JSONB | 旧标签字段，兼容保留 |

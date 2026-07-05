@@ -146,7 +146,7 @@ def _record_failure(item_id: int, msg: str):
         log.error("could not record failure for item %s: %s", item_id, e)
 
 
-# ── 文字条目自动分类(和 Vision 并行,读 body 打 5 维度里的 4 个) ──────────────
+# ── 文字条目自动分类(和 Vision 并行；source 由入口确定) ──────────────
 def _fetch_pending_entries(limit: int) -> list[dict]:
     with get_conn() as conn:
         return conn.execute(
