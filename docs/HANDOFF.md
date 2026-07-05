@@ -20,7 +20,7 @@
 - **前端**:React + Vite + PWA(iPhone 竖屏优先)。
 - **AI**:OpenRouter(chat completions)。默认 `openai/gpt-4.1-mini`。
 - **部署**:单容器(前端 dist 打进后端镜像,单端口 8000)+ 自带 Postgres。Docker Compose。
-- **仓库**:GitHub `mikemoi/z-image`,分支 `main`。git 身份 `zbrain <momol.gz@gmail.com>`(本地 `git config` 设的,非 global)。
+- **仓库**:GitHub `mikemoi/z-image`,分支 `main`。身份和凭据使用各开发环境自己的配置，不写入仓库。
 
 ### 目录结构
 ```
@@ -44,6 +44,10 @@ frontend/src/
   styles.css      暖纸(#f4f1ea)+ 墨青(#2f6f5f)主题,CSS 变量
 deploy/init.sql   幂等建表(新部署首次执行);ensure_schema 覆盖增量迁移
 docs/             本套文档
+  STATUS.md       当前实现快照与已知问题
+  DECISIONS.md    关键兼容与产品决策
+  TESTING.md      回归测试和集成验收
+backend/tests/    不连接数据库、不调用 AI 的契约测试
 Dockerfile        多阶段:node 构建 dist → python 后端 + 复制 dist 到 /app/frontend/dist
 docker-compose.yml  db(postgres:17)+ backend
 ```
@@ -77,7 +81,7 @@ docker-compose.yml  db(postgres:17)+ backend
 
 ## 3. 统一分类体系(已"固定",这是核心约定)
 
-所有内容用 5 个维度。**枚举是死的**,三处必须一致:后端 `models/entries.py` 的 `Literal` + `classify.py` 的集合 + 前端 `classification.js`。
+所有内容用 5 个维度。枚举变更至少同步：后端 Entry Literal、`classify.py` 集合与 prompt、前端 `classification.js`、文档和测试。截图人工 PATCH 模型当前仍是普通字符串，分类器输出由 normalize 兜底。
 
 | 维度 | 字段 | 固定值 |
 |---|---|---|
@@ -99,7 +103,7 @@ docker-compose.yml  db(postgres:17)+ backend
 | **自动分类** | `classify.call_classify` | `classify_model` | worker `_classify_loop` 自动(entries + items) | entry_type/domain/topics(截图不覆盖 vision 的 use_tag/theme) |
 | **问问AI** | `vision.call_insight` | `insight_model` | 详情页按需点击 | explanation/quality/quality_note/suggested_theme(缓存 `ai_insight`) |
 
-**worker.py 两个循环并行**:`_loop`(Vision 处理 review 的 items)、`_classify_loop`(分类 pending 的 entries + ok 未分类的 items)。都受 `_take_budget()`,`VISION_DAILY_BUDGET<=0` 视为不限。失败记状态、可续跑、不阻塞。
+**worker.py 两个循环并行**:`_loop`(Vision 处理 review 的 items)、`_classify_loop`(分类 pending 的 entries + ok 未分类的 items)。都受 `_take_budget()`,`VISION_DAILY_BUDGET<=0` 视为不限。Vision 按 `_attempts` 自动重试；统一分类失败置 `failed`，不会自动再捞，需 reclassify。
 **人工优先**:用户手改任一分类维度 → 后端置 `ai_classify_status='done'`,worker 不再覆盖。`reclassify` 端点清空 + 置 pending 重跑。
 
 ---
@@ -138,16 +142,16 @@ docker-compose.yml  db(postgres:17)+ backend
 
 ## 7. 本地开发与验证
 
-- **venv**:`backend/.venv`(用 `C:/Users/momol/AppData/Local/Programs/Python/Python312/python.exe` 建;原 venv 曾指向失效的 F:\Python)。
-- **本地 DB**:Postgres 库 `zbrain`,密码 `123456`(`backend/.env` 的 DATABASE_URL 已改成这个;注意 .env 默认曾是 `zbrain2024` 对不上)。
+- **venv**:`backend/.venv`；若环境失效，用本机 Python 3.12 重建，不依赖交接者的绝对路径。
+- **本地 DB**:连接信息只放 `backend/.env`，不要在文档、测试或提交中记录真实密码。
 - **跑后端**:`./.venv/Scripts/python.exe -m uvicorn main:app`。前端:`cd frontend && npm run dev`(vite,代理 /api → 127.0.0.1:8000)。或根目录 `./start-dev.ps1`。
-- **验证套路**:后端改动 `py -3 -m py_compile <files>`;前端 `npm run build`;逻辑用直连 DB 的 E2E 脚本(`PYTHONPATH=backend DATABASE_URL=…123456… python <script>`)。真 AI 验证需 OpenRouter key(**不在仓库,向 owner 要测试 key**)。
+- **验证套路**:先按 [TESTING.md](TESTING.md) 运行无副作用回归测试、compileall 和前端构建。写数据库的 E2E 只对本地/专用测试库运行。真 AI 验证需单独授权和有效 OpenRouter key。
 - **注意**:Windows 控制台中文会显示成 GBK 乱码(数据本身没问题;要看中文就写 UTF-8 文件再读)。前端 preview 截图工具偶尔超时,可改用 DOM 查询验证。
 
 ## 8. 部署与运维
 
 ```bash
-cd /opt/1panel/apps/z-image      # 1Panel,Postgres 容器 1Panel-postgresql-WRvF,库 zbrain,user user_e5JPdJ
+cd <服务器上的项目目录>
 git pull
 docker compose up -d --build     # ensure_schema 自动迁移,分类 worker 自动补跑存量
 docker compose logs -f backend
@@ -155,6 +159,30 @@ docker compose logs -f backend
 - `.env` 必改:`POSTGRES_PASSWORD / AUTH_TOKEN / OPENROUTER_API_KEY`;`VISION_DAILY_BUDGET=0`(不限次,交给 API 侧限流)。
 - **原图备份**:落宿主机 `/data/zbrain/files`,用户删手机后是唯一副本(用户另有磁盘备份 + Google 相册,已三重)。
 - **白屏坑(已修)**:`main.py` 用 `_DIST_CANDIDATES` 兼容容器(`/app/frontend/dist`)与本地(`../frontend/dist`)两种布局——别改回单一 `parent.parent`。
+
+### 配置清单
+
+- 必需：`POSTGRES_PASSWORD`（Compose）、`AUTH_TOKEN`、`OPENROUTER_API_KEY`。
+- 数据与服务：`DATABASE_URL`、`FILES_ROOT`。
+- 模型默认：`VISION_MODEL`、`INSIGHT_MODEL`；自动分类默认沿用 `VISION_MODEL`。
+- Worker：`VISION_DAILY_BUDGET`、`VISION_MAX_ATTEMPTS`、`WORKER_POLL_SECONDS`。
+- 数据库 `core.settings` 中的 `ocr_model/insight_model/classify_model` 高于环境变量，并由设置页即时修改。
+
+### 备份与恢复
+
+完整备份必须同时包含 PostgreSQL 和 `FILES_ROOT` 原图目录。只备份其中一个无法完整恢复。
+
+```bash
+# 示例：具体容器名、用户、路径按部署环境替换
+docker compose exec -T db pg_dump -U postgres -d zbrain -Fc > zbrain.dump
+tar -czf zbrain-files.tgz /data/zbrain/files
+
+# 恢复到已创建的空库
+docker compose exec -T db pg_restore -U postgres -d zbrain --clean --if-exists < zbrain.dump
+tar -xzf zbrain-files.tgz -C /
+```
+
+恢复后重建后端并检查 `/api/health`、随机原图、搜索和 Worker 日志。覆盖现有生产库前必须另做一份快照。
 
 ---
 

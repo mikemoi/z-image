@@ -1,83 +1,96 @@
 # zbrain API 参考
 
-> 当前实现(v0.3)的完整端点清单。除 `/api/health` 外,所有 `/api/*` 均需鉴权:
-> `Authorization: Bearer <AUTH_TOKEN>`(也接受不带 `Bearer` 前缀的裸 token)。
-> 路由源码:[`backend/routers/`](../backend/routers/) + [`backend/main.py`](../backend/main.py)。
+> 当前源码基线。所有 `/api/*`（除 health）需要 `Authorization: Bearer <AUTH_TOKEN>`。
 
-## 系统 / 鉴权(main.py)
+## 系统
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/health` | 探活 + DB 连通性(**免鉴权**):`{status, db}` |
-| GET | `/api/whoami` | 验证 token 通路 |
-| GET | `/api/worker/status` | 当日 Vision 预算:`{date, used, limit, pending, working}`(前端只用 `working` 布尔,不显示数字) |
+| GET | `/api/health` | 免鉴权；返回服务和数据库状态 |
+| GET | `/api/whoami` | 验证 token |
+| GET | `/api/worker/status` | 当日三条 AI 管线共享的进程内预算及工作状态 |
 
-## 条目 items(`/api/items`)
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| POST | `/upload` | 批量上传(multipart `images[]`)。逐张 checksum 去重、落盘、`items(status=review)`,**同步返回** `{received, message}`,不等 AI |
-| GET | `` | 列表筛选:`?status=&theme=&use=&granularity=&deleted=false&limit=50&offset=0` → `{total, limit, offset, items[]}` |
-| GET | `/{id}` | 详情:原图 checksum + 标签 + summary + clean_text/raw_text |
-| PATCH | `/{id}` | 改标签:`{title?, theme?, use_tag?, status?, granularity?}`(只更传入字段) |
-| POST | `/{id}/process` | 同步跑一遍 Vision(调试用),完成返回详情 |
-| POST | `/{id}/reprocess` | 清结果、重置 review,让 worker 重跑 |
-| POST | `/{id}/insight` | **问问 AI**:`?refresh=true` 强制重算。返回 `{explanation, quality, quality_note, suggested_theme, suggested_theme_reason, cached}`;结果缓存进 `ai_insight` |
-| POST | `/{id}/adopt-theme` | 采纳 AI 提议的新分类:`{theme}` → 建 tag + 归入,返回详情 |
-| GET | `/cleanup` | 清库:列出 `ai_output.quality='无信息量'` 的条目 `{id, checksum, title, summary, quality_note}[]` |
-| PATCH | `/{id}/review` | 闸门一:标记已看 |
-| PATCH | `/{id}/promote` | 闸门二(knowledge):切块入 `core.knowledge` + 打 theme/use 标签(需先 review;asset 拒绝) |
-| POST | `/{id}/to-note` | 碎片(fragment)落 `core.notes`(轻路径,无第二闸门;asset 拒绝) |
-| PATCH | `/{id}/soft-delete` | 软删入回收站 |
-| POST | `/{id}/restore` | 从回收站恢复 |
-| DELETE | `/{id}/purge` | 彻底销毁:删记录 + 抹磁盘原文件(仅当无其他 item 引用该 file) |
-
-## 文字入口 entries(`/api/entries`,v0.3)
+## 截图条目 `/api/items`
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| POST | `` | 记一条:`{kind, body, mood?, logged_for?, pinned?}`。log 缺省日期=今天;log/plan 直接 `filed`,note/clip 进 `inbox` |
-| GET | `` | 列表:`?kind=&status=&limit=&offset=` |
-| GET | `/inbox` | 待整理(status=inbox 的 note/clip) |
-| GET | `/plans` | 钉住的计划(kind=plan, pinned) |
-| GET | `/logs` | 日志时间线(按 logged_for 倒序) |
-| GET | `/logs/on-this-day` | 往年今天(同月日、往年的日志) |
-| PATCH | `/{id}` | 改:`{body?, mood?, pinned?, status?, logged_for?}` |
-| POST | `/{id}/file` | 归位:`{target: 'note'\|'knowledge'}` → 写入 core + status=filed(建 sources 指向本 entry) |
+| POST | `/upload` | multipart `images[]`；落盘和建 item 后立即返回，不等 AI |
+| GET | `` | `status/theme/use/granularity/promoted/deleted/limit/offset` 筛选 |
+| GET | `/{id}` | 详情，含原图 checksum、OCR 与统一分类字段 |
+| PATCH | `/{id}` | 修改 title/theme/use_tag/status/granularity/entry_type/domain/topics；人工改分类会锁定 AI 状态 |
+| POST | `/{id}/process` | 同步跑 Vision，调试用，会真实调用 AI |
+| POST | `/{id}/reprocess` | 清 Vision 结果并回到 review |
+| POST | `/{id}/insight` | 问问 AI；`refresh=true` 强制重算，否则使用缓存 |
+| POST | `/{id}/adopt-theme` | 采纳旧 theme 生长建议 |
+| GET | `/cleanup` | 返回 AI 判为无信息量的清库候选 |
+| PATCH | `/{id}/review` | 标记已看 |
+| PATCH | `/{id}/promote` | knowledge 切块进入 core.knowledge |
+| POST | `/{id}/to-note` | fragment 进入 core.notes |
 | PATCH | `/{id}/soft-delete` | 软删 |
 | POST | `/{id}/restore` | 恢复 |
+| DELETE | `/{id}/purge` | 永久删除 item；无其他引用时同时删原图 |
 
-## 维度 / 生长分类 stats(`/api/stats`)
+Item 的统一分类字段为 `entry_type/domain/use_tag/topics`；来源在业务上固定为“截图”。旧 `theme/granularity` 仍保留。
+
+## 文字入口 `/api/entries`
+
+### 创建
+
+`POST /api/entries`
+
+```json
+{
+  "kind": "idea",
+  "body": "转化，而不是惩罚。",
+  "source_item_id": null,
+  "entry_type": "句子",
+  "domain": "方向",
+  "use_tag": "心态",
+  "topics": ["正向循环"]
+}
+```
+
+`kind` 仅允许实际业务值 `idea/log/plan`（未知值当前会回退为 idea）。服务端忽略客户端来源推断：有 `source_item_id` 为“截图”，否则为“自己”。新建状态为 `filed`，分类为空时后台自动分类。
+
+### 路由
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/dimensions` | 维度计数:`{total, assets, themes{}, uses{}}` |
-| GET | `/theme-candidates` | 新分类候选:`?min=3` → `[{name, count}]`(suggested_theme 攒够阈值、未采纳的) |
-| POST | `/theme-candidates/adopt` | 批量采纳一簇:`{theme}` → 建 tag + 整簇归入,返回 `{theme, count}` |
+| GET | `` | 通用列表，支持 `kind/status/limit/offset` |
+| GET | `/ideas` | 想法流，包含来源截图 checksum |
+| GET | `/inbox` | 兼容旧 inbox 数据；当前创建流程不再产生 inbox |
+| GET | `/plans` | pinned 计划 |
+| GET | `/logs` | 日志时间线 |
+| GET | `/logs/on-this-day` | 往年今天 |
+| PATCH | `/{id}` | 修改正文或分类；分类字段人工修改后状态置 done |
+| POST | `/{id}/promote` | 想法精选入 core.knowledge，重复调用返回 409 |
+| POST | `/{id}/reclassify` | 清空四个分类字段并置 pending，供 Worker 重跑 |
+| POST | `/{id}/file` | 兼容归位到 note/knowledge 的旧能力 |
+| DELETE | `/{id}` | 永久删除 Entry；当前无软删/恢复端点 |
 
-## 搜索 search(`/api/search`)
+Entry 响应包含：`entry_type/domain/use_tag/source/topics/ai_classify_status/ai_classified_at/ai_classify_output`，以及旧字段 `kind/theme/source_item_id`。
 
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | `` | 全文检索:`?q=&limit=50`。覆盖截图条目 + 手写文字,返回 `SearchHit[]`(`source` 区分 image/entry) |
-
-## 重新遇见 feed(`/api/feed`)
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | `/resurface` | 取 `last_seen_at` 最久/为空的碎片 `?limit=5`,返回后更新其 last_seen_at 轮换 |
-| PATCH | `/notes/{id}/soft-delete` | 删掉一条碎片,以后不再遇见 |
-
-## 原图 files(`/api/files`)
+## 设置 `/api/settings`
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/{checksum}` | 按 checksum 返回磁盘原图(inline);记录在但磁盘丢 → 410 |
+| GET | `/api/settings` | 返回 ocr/insight/classify 三个当前模型及候选列表 |
+| PUT | `/api/settings` | 更新任意模型；写入 core.settings 后即时生效 |
 
----
+```json
+{"ocr_model":"openai/gpt-4.1-mini","insight_model":"openai/gpt-4.1","classify_model":"openai/gpt-4.1-mini"}
+```
 
-## 鉴权与配置
+## 其他
 
-- 单用户 header token(`backend/auth.py`),token 来自环境变量 `AUTH_TOKEN`。
-- 配置项(`backend/config.py`):`DATABASE_URL` `AUTH_TOKEN` `FILES_ROOT` `OPENROUTER_API_KEY` `OPENROUTER_BASE_URL` `VISION_MODEL` `VISION_DAILY_BUDGET` `VISION_MAX_ATTEMPTS` `WORKER_POLL_SECONDS`。
-- 交互式 API 文档(FastAPI 自带):`http://<host>:8000/docs`。
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/stats/dimensions` | 旧 theme/use 维度计数 |
+| GET | `/api/stats/theme-candidates` | 聚合旧 suggested_theme |
+| POST | `/api/stats/theme-candidates/adopt` | 批量采纳旧 theme 候选 |
+| GET | `/api/search?q=` | 搜索截图标题/摘要/OCR 与 Entry 正文 |
+| GET | `/api/feed/resurface` | 轮换 core.notes |
+| PATCH | `/api/feed/notes/{id}/soft-delete` | 软删碎片 |
+| GET | `/api/files/{checksum}` | 鉴权读取原图；磁盘文件丢失返回 410 |
+
+交互式 OpenAPI：`http://127.0.0.1:8000/docs`。

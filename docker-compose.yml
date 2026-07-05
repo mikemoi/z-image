@@ -33,7 +33,10 @@ services:
       AUTH_TOKEN: ${AUTH_TOKEN}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       VISION_MODEL: ${VISION_MODEL:-openai/gpt-4.1-mini}
-      VISION_DAILY_BUDGET: ${VISION_DAILY_BUDGET:-500}
+      INSIGHT_MODEL: ${INSIGHT_MODEL:-openai/gpt-4.1-mini}
+      VISION_DAILY_BUDGET: ${VISION_DAILY_BUDGET:-0}
+      VISION_MAX_ATTEMPTS: ${VISION_MAX_ATTEMPTS:-3}
+      WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-8}
       FILES_ROOT: /data/zbrain/files
     volumes:
       - /data/zbrain/files:/data/zbrain/files   # 原图落宿主机,记得单独备份(可能是唯一副本)

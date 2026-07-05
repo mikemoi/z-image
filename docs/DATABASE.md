@@ -25,11 +25,16 @@
 | | `fragment` | 孤立金句/感悟,走轻路径入 `core.notes` |
 | | `asset` | 证件/票据/二维码等"要用时查"的资料凭证,不入脑 |
 | `theme`(主题) | `trading` `ai` `adhd` `language` `life` `other` | 预置六类;**可生长**(用户采纳 AI 建议后新增,如"运动") |
-| `use_tag`(用途) | `方法` `避坑` `心态` `工具` `灵感` | 稳定五类,不生长 |
+| 统一类型 | `想法` `句子` `规则` `决策` `知识` `资料` `记录` | 内容是什么 |
+| 统一领域 | `身心` `生活` `能力` `财务` `方向` | 固定大领域 |
+| `use_tag`(用途) | `方法` `避坑` `心态` `工具` `灵感` `存档` `决策` `参考` | 稳定八类,不生长 |
+| `topics` | JSONB 字符串数组 | 自由小关键词；“他人经验”属于标签 |
+| `source` | `自己` `截图` `文件` | 进入方式，不表示可信度 |
 | `quality`(AI 质量判断) | `干货` `反面样本` `无信息量` | 反面样本=像鸡汤但有避坑价值,仍值得留;只有无信息量建议清 |
 | `core.tags.kind` | `theme` `use` `topic` | 标签种类;topic 为自由细分(预留) |
-| `core.entries.kind` | `note` `log` `plan` `clip` | 速记 / 日志 / 计划 / AI 剪藏 |
-| `core.entries.status` | `inbox` `filed` | 待整理 / 已归位或常驻 |
+| `core.entries.kind` | `idea` `log` `plan` | 想法 / 日志 / 计划入口 |
+| `core.entries.status` | `inbox` `filed` | inbox 仅兼容旧数据；当前创建 filed |
+| `ai_classify_status` | `pending` `done` `failed` | 待分类 / 完成或人工锁定 / 失败待手动重跑 |
 | `image.contents.extraction_method` | `vision` `pdftotext` `ocr` | 文字提取方式(当前只用 vision) |
 | `image.contents.cleaning_method` | `rules` `ai` `rules+ai` | 清洗方式(当前 rules) |
 
@@ -99,24 +104,35 @@
 | `tag_id` | BIGINT FK→tags ON DELETE CASCADE | |
 | — | PK(knowledge_id, tag_id) | 组合主键 |
 
-### `core.entries` — 文字入口(v0.3 新增)
-手写/剪藏的文字条目。速记/日志/计划/剪藏共用一张表,靠 `kind` 区分。归位后写入 `core.notes`/`core.knowledge`(并建 sources 指向本 entry)。
+### `core.entries` — 文字入口
+想法、日志、计划共用一张表。`kind` 表示入口，不等于内容类型 `entry_type`。
 
 | 字段 | 类型 | 含义 |
 |---|---|---|
 | `id` | BIGSERIAL PK | 主键 |
-| `kind` | TEXT NOT NULL | `note`/`log`/`plan`/`clip` |
+| `kind` | TEXT NOT NULL | 当前业务值 `idea`/`log`/`plan` |
 | `body` | TEXT NOT NULL | 文字内容 |
-| `status` | TEXT NOT NULL DEFAULT 'inbox' | `inbox`(待整理:note/clip)/ `filed`(已归位或常驻:log/plan/已入脑) |
+| `status` | TEXT NOT NULL DEFAULT 'inbox' | 兼容旧数据；当前创建统一写 `filed` |
 | `mood` | TEXT | 日志可选心情(emoji) |
 | `pinned` | BOOLEAN DEFAULT false | 计划钉住(常驻首页) |
 | `logged_for` | DATE | 日志的"事情发生日期",缺省=今天 |
+| `source_item_id` | BIGINT | 来自截图详情页时关联 item；当前未设 FK |
+| `theme` | TEXT | 旧主题字段，兼容保留 |
+| `promoted_at` | TIMESTAMPTZ | 想法精选入脑时间 |
+| `entry_type` | TEXT | 类型：想法/句子/规则/决策/知识/资料/记录 |
+| `domain` | TEXT | 领域：身心/生活/能力/财务/方向 |
+| `use_tag` | TEXT | 用途：方法/避坑/心态/工具/灵感/存档/决策/参考 |
+| `source` | TEXT | 自己/截图/文件；创建时由服务端推断 |
+| `topics` | JSONB | 自由标签字符串数组 |
+| `ai_classify_status` | TEXT DEFAULT pending | pending/done/failed；failed 不自动重试 |
+| `ai_classified_at` | TIMESTAMPTZ | 自动分类成功时间 |
+| `ai_classify_output` | JSONB | 分类器规整结果与原始返回 |
 | `deleted_at` | TIMESTAMPTZ | 软删 |
 | `created_at` / `updated_at` | TIMESTAMPTZ | 创建/更新时间 |
 
 索引:`idx_entries_kind`、`idx_entries_status`、`idx_entries_logged`、`idx_entries_deleted`。
 
-> ⚠️ 设计讨论中:未来可能将"记的时候强制分类 + 待整理"重构为"统一时间流 + 可选入脑",详见 [`../v0.3-plan.md`](../v0.3-plan.md)。当前实现仍是本表所述。
+自动分类只处理分类为空且状态为 NULL/pending 的记录。人工修改分类会把状态置 done；reclassify 会清空分类并重新置 pending。
 
 ---
 
@@ -152,12 +168,19 @@
 | `is_ocr_suitable` | BOOLEAN DEFAULT false | 是否值得入库正文(两段式省钱的判断) |
 | `ai_output` | JSONB | AI 自动处理的完整结构化输出(见下方结构) |
 | `ai_insight` | JSONB | 「问问 AI」按需生成的看法缓存(v0.3,见下方结构) |
+| `entry_type` | TEXT | 统一分类类型 |
+| `domain` | TEXT | 统一分类领域 |
+| `topics` | JSONB | 自由标签数组 |
+| `ai_classify_status` | TEXT | NULL/pending/done/failed |
+| `ai_classified_at` | TIMESTAMPTZ | 分类成功时间 |
 | `reviewed_at` | TIMESTAMPTZ | 闸门一:标记已看 |
 | `promoted_at` | TIMESTAMPTZ | 闸门二:入脑/落箱时间(knowledge 走两道,fragment 落箱也记此) |
 | `deleted_at` | TIMESTAMPTZ | 软删,原文件仍在 |
 | `created_at` / `updated_at` | TIMESTAMPTZ | 创建/更新 |
 
 索引:`idx_items_status`、`idx_items_theme`、`idx_items_use`、`idx_items_deleted`。
+
+截图沿用 Vision 生成的 `use_tag`，分类 Worker 只补 `entry_type/domain/topics`，不覆盖 `theme/use_tag/granularity`。截图来源在业务上固定为“截图”，当前不单独存 `source` 列。
 
 **`ai_output` JSONB 结构**(由 `vision.normalize` 产出,worker 原样存):
 ```jsonc
