@@ -18,6 +18,15 @@ export default function Me() {
         <button className="me-item" onClick={() => nav('/overview')}>
           <Icon name="chart" size={20} className="me-ico" /><span>数据概览</span><span className="me-arrow">›</span>
         </button>
+        <button className="me-item" onClick={() => nav('/timeline')}>
+          <Icon name="book" size={20} className="me-ico" /><span>时间线</span><span className="me-arrow">›</span>
+        </button>
+        <button className="me-item" onClick={() => nav('/reclassify')}>
+          <Icon name="spark" size={20} className="me-ico" /><span>重新整理</span><span className="me-arrow">›</span>
+        </button>
+        <button className="me-item" onClick={() => nav('/approvals')}>
+          <Icon name="flag" size={20} className="me-ico" /><span>待审批</span><span className="me-arrow">›</span>
+        </button>
         <button className="me-item" onClick={() => nav('/settings')}>
           <Icon name="spark" size={20} className="me-ico" /><span>AI 设置 · 用量 / 模型</span><span className="me-arrow">›</span>
         </button>

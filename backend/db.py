@@ -33,9 +33,11 @@ def ensure_schema():
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS entry_type TEXT")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS domain TEXT")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS main_topic TEXT")
+        conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS sub_topic TEXT")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS related_topics JSONB")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS tags JSONB")
-        conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS source TEXT DEFAULT '截图'")
+        conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS source TEXT DEFAULT '图片'")
+        conn.execute("ALTER TABLE image.items ALTER COLUMN source SET DEFAULT '图片'")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS topics JSONB")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS highlights JSONB")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS ai_classify_status TEXT")
@@ -65,10 +67,12 @@ def ensure_schema():
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS entry_type TEXT")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS domain TEXT")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS main_topic TEXT")
+        conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS sub_topic TEXT")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS related_topics JSONB")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS tags JSONB")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS use_tag TEXT")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS source TEXT")
+        conn.execute("ALTER TABLE core.entries ALTER COLUMN source SET DEFAULT '我'")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS topics JSONB")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS highlights JSONB")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS ai_classify_status TEXT DEFAULT 'pending'")
@@ -80,6 +84,22 @@ def ensure_schema():
                 key        TEXT PRIMARY KEY,
                 value      TEXT,
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )""")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS core.classification_candidates (
+                id BIGSERIAL PRIMARY KEY,
+                candidate_type TEXT NOT NULL,
+                name TEXT NOT NULL,
+                domain TEXT,
+                main_topic TEXT,
+                status TEXT NOT NULL DEFAULT 'pending',
+                target_name TEXT,
+                occurrence_count INTEGER NOT NULL DEFAULT 0,
+                content_count INTEGER NOT NULL DEFAULT 0,
+                examples JSONB,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                UNIQUE(candidate_type, name, domain, main_topic)
             )""")
         conn.commit()
 

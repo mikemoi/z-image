@@ -175,18 +175,18 @@ async def classify_entry(entry_id: int, body: str) -> bool:
                    SET entry_type = COALESCE(entry_type, %s),
                        domain     = COALESCE(domain, %s),
                        main_topic = COALESCE(main_topic, %s),
+                       sub_topic  = COALESCE(sub_topic, %s),
                        related_topics = COALESCE(related_topics, %s),
                        tags       = COALESCE(tags, %s),
-                       highlights = COALESCE(highlights, %s),
                        ai_classify_status = 'done', ai_classified_at = now(),
                        ai_classify_output = %s, updated_at = now()
                    WHERE id = %s""",
-                (r["entry_type"], r["domain"], r["main_topic"],
+                (r["entry_type"], r["domain"], r["main_topic"], r["sub_topic"],
                  Jsonb(r["related_topics"]) if r["related_topics"] else None,
                  Jsonb(r["tags"]) if r["tags"] else None,
-                 Jsonb(r["highlights"]) if r["highlights"] else None,
                  Jsonb(r), entry_id),
             )
+            _upsert_candidates(conn, r, "entry", entry_id)
             conn.commit()
         return True
     except Exception as e:  # noqa: BLE001
@@ -206,6 +206,33 @@ def _mark_classify_failed(entry_id: int, msg: str):
             conn.commit()
     except Exception as e:  # noqa: BLE001
         log.error("could not record classify failure for entry %s: %s", entry_id, e)
+
+
+def _upsert_candidates(conn, result: dict, content_kind: str, content_id: int):
+    examples = Jsonb([{"kind": content_kind, "id": content_id}])
+    for name in result.get("candidate_tags") or []:
+        conn.execute(
+            """INSERT INTO core.classification_candidates
+                   (candidate_type, name, domain, main_topic, status, occurrence_count, content_count, examples)
+               VALUES ('tag', %s, %s, %s, 'pending', 1, 1, %s)
+               ON CONFLICT (candidate_type, name, domain, main_topic)
+               DO UPDATE SET occurrence_count = core.classification_candidates.occurrence_count + 1,
+                             content_count = core.classification_candidates.content_count + 1,
+                             updated_at = now()""",
+            (name, result.get("domain") or "", result.get("main_topic") or "", examples),
+        )
+    sub = result.get("candidate_sub_topic")
+    if sub:
+        conn.execute(
+            """INSERT INTO core.classification_candidates
+                   (candidate_type, name, domain, main_topic, status, occurrence_count, content_count, examples)
+               VALUES ('sub_topic', %s, %s, %s, 'pending', 1, 1, %s)
+               ON CONFLICT (candidate_type, name, domain, main_topic)
+               DO UPDATE SET occurrence_count = core.classification_candidates.occurrence_count + 1,
+                             content_count = core.classification_candidates.content_count + 1,
+                             updated_at = now()""",
+            (sub, result.get("candidate_sub_topic_domain"), result.get("candidate_sub_topic_main_topic"), examples),
+        )
 
 
 # ── 截图也纳入统一分类(读 summary + OCR;旧 theme/use_tag 只兼容保留) ──────
@@ -241,16 +268,17 @@ async def classify_item(item_id: int, text: str) -> bool:
                    SET entry_type = COALESCE(entry_type, %s),
                        domain     = COALESCE(domain, %s),
                        main_topic = COALESCE(main_topic, %s),
+                       sub_topic  = COALESCE(sub_topic, %s),
                        related_topics = COALESCE(related_topics, %s),
                        tags       = COALESCE(tags, %s),
-                       highlights = COALESCE(highlights, %s),
                        ai_classify_status='done', ai_classified_at=now(), updated_at=now()
                    WHERE id=%s""",
-                (r["entry_type"], r["domain"], r["main_topic"],
+                (r["entry_type"], r["domain"], r["main_topic"], r["sub_topic"],
                  Jsonb(r["related_topics"]) if r["related_topics"] else None,
                  Jsonb(r["tags"]) if r["tags"] else None,
-                 Jsonb(r["highlights"]) if r["highlights"] else None, item_id),
+                 item_id),
             )
+            _upsert_candidates(conn, r, "item", item_id)
             conn.commit()
         return True
     except Exception as e:  # noqa: BLE001

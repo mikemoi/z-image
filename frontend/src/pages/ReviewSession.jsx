@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
-import { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN } from '../classification'
+import { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN, SOURCES } from '../classification'
 import Img from '../components/Img'
 import HighlightText from '../components/HighlightText'
 import Icon from '../components/Icon'
 import ClassificationMeta from '../components/ClassificationMeta'
 
-const FILTER_LABEL = { entry_type: '类型', domain: '领域', main_topic: '主轴', tag: '标签', source: '来源' }
-const SOURCES = ['自己', '截图', '文件']
+const FILTER_LABEL = { entry_type: '类型', domain: '领域', main_topic: '主题', tag: '标签', source: '来源' }
 
 function FacetGroup({ title, field, values, counts, onPick }) {
   if (!values.length) return null
@@ -92,7 +91,7 @@ export default function ReviewSession() {
     try {
       await api.reclassifyItem(detail.id)
       setDetail((d) => ({ ...d, entry_type: null, domain: null, main_topic: null,
-        related_topics: null, tags: null, ai_classify_status: 'pending' }))
+        sub_topic: null, related_topics: null, tags: null, ai_classify_status: 'pending' }))
     } finally { setClassifying(false) }
   }
   function readTextSelection() {
@@ -135,7 +134,7 @@ export default function ReviewSession() {
       <FacetGroup title="类型" field="entry_type" values={ENTRY_TYPES} counts={facets.entry_types} onPick={pickCategory} />
       <FacetGroup title="领域" field="domain" values={DOMAINS} counts={facets.domains} onPick={pickCategory} />
       {Object.entries(TOPICS_BY_DOMAIN).map(([domain, topics]) => <FacetGroup key={domain}
-        title={`${domain} · 主轴`} field="main_topic" values={topics}
+        title={`${domain} · 主题`} field="main_topic" values={topics}
         counts={facets.main_topics} onPick={pickCategory} />)}
       <FacetGroup title="来源" field="source" values={SOURCES} counts={facets.sources} onPick={pickCategory} />
       <FacetGroup title="常用标签" field="tag"

@@ -7,7 +7,7 @@ import { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN, SOURCES } from '../classificati
 const FILTER_LABEL = {
   entry_type: '类型',
   domain: '领域',
-  main_topic: '主轴',
+  main_topic: '主题',
   source: '来源',
 }
 
@@ -28,7 +28,7 @@ function ChipGroup({ title, field, values, active, onPick }) {
   )
 }
 
-// 统一分类浏览：只展示类型 / 领域 / 主轴 / 来源。
+// 统一分类浏览：只展示类型 / 领域 / 主题 / 来源。
 export default function Browse() {
   const [sp, setSp] = useSearchParams()
   const nav = useNavigate()
@@ -93,7 +93,7 @@ export default function Browse() {
       </div>
 
       <h1 className="page-title">分类浏览</h1>
-      <div className="capture-hint">这里统一按类型、领域、主轴、来源看内容。</div>
+      <div className="capture-hint">这里统一按类型、领域、主题、来源看内容。</div>
 
       {activeFilters.length > 0 && (
         <button className="review-filter" onClick={clearAll}>
@@ -103,7 +103,7 @@ export default function Browse() {
 
       <ChipGroup title="类型" field="entry_type" values={ENTRY_TYPES} active={entryType} onPick={pick} />
       <ChipGroup title="领域" field="domain" values={DOMAINS} active={domain} onPick={pick} />
-      <ChipGroup title={domain ? `${domain} · 主轴` : '主轴'} field="main_topic"
+      <ChipGroup title={domain ? `${domain} · 主题` : '主题'} field="main_topic"
         values={topicValues} active={mainTopic} onPick={pick} />
       <ChipGroup title="来源" field="source" values={SOURCES} active={source} onPick={pick} />
 

@@ -6,10 +6,10 @@ import Icon from '../components/Icon'
 import HighlightText from '../components/HighlightText'
 import HighlightControls from '../components/HighlightControls'
 import ClassificationMeta from '../components/ClassificationMeta'
-import { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN, ALL_TOPICS } from '../classification'
+import { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN, SUB_TOPICS_BY_TOPIC, ALL_TOPICS, displayType } from '../classification'
 
 function asDraft(item) {
-  return { ...item, tags_text: (item.tags || item.topics || []).join('，') }
+  return { ...item, entry_type: displayType(item.entry_type), tags_text: (item.tags || item.topics || []).join('，') }
 }
 function splitTags(value) {
   return Array.from(new Set((value || '').split(/[,，\n]/).map((v) => v.trim()).filter(Boolean))).slice(0, 5)
@@ -53,6 +53,7 @@ export default function Detail() {
     const patch = {
       title: draft.title, entry_type: draft.entry_type || null, domain: draft.domain || null,
       main_topic: draft.main_topic || null,
+      sub_topic: draft.sub_topic || null,
       related_topics: (draft.related_topics || []).filter((v) => v && v !== draft.main_topic).slice(0, 2),
       tags: splitTags(draft.tags_text),
     }
@@ -70,7 +71,7 @@ export default function Detail() {
   async function reclassify() {
     await api.reclassifyItem(item.id)
     const pending = { ...item, entry_type: null, domain: null, main_topic: null,
-      related_topics: null, tags: null, ai_classify_status: 'pending' }
+      sub_topic: null, related_topics: null, tags: null, ai_classify_status: 'pending' }
     setItem(pending); setDraft(asDraft(pending)); setMsg('正在重新分类…')
   }
   async function saveIdea() {
@@ -158,11 +159,19 @@ export default function Detail() {
           </select>
           <label>领域</label><select value={draft.domain || ''} onChange={(e) => {
             const domain = e.target.value
-            setDraft({ ...draft, domain, main_topic: (TOPICS_BY_DOMAIN[domain] || []).includes(draft.main_topic) ? draft.main_topic : '' })
+            const main_topic = (TOPICS_BY_DOMAIN[domain] || []).includes(draft.main_topic) ? draft.main_topic : ''
+            setDraft({ ...draft, domain, main_topic, sub_topic: main_topic ? draft.sub_topic : '' })
           }}><option value="">未分类</option>{DOMAINS.map((v) => <option key={v}>{v}</option>)}</select>
-          <label>主轴</label><select value={draft.main_topic || ''} disabled={!draft.domain}
-            onChange={(e) => setDraft({ ...draft, main_topic: e.target.value })}>
+          <label>主题</label><select value={draft.main_topic || ''} disabled={!draft.domain}
+            onChange={(e) => {
+              const main_topic = e.target.value
+              setDraft({ ...draft, main_topic, sub_topic: (SUB_TOPICS_BY_TOPIC[main_topic] || []).includes(draft.sub_topic) ? draft.sub_topic : '' })
+            }}>
             <option value="">未分类</option>{(TOPICS_BY_DOMAIN[draft.domain] || []).map((v) => <option key={v}>{v}</option>)}
+          </select>
+          <label>子题</label><select value={draft.sub_topic || ''} disabled={!draft.main_topic}
+            onChange={(e) => setDraft({ ...draft, sub_topic: e.target.value })}>
+            <option value="">未分类</option>{(SUB_TOPICS_BY_TOPIC[draft.main_topic] || []).map((v) => <option key={v}>{v}</option>)}
           </select>
           <label>关联</label>
           <div className="entry-editor-grid related-selects">{[0, 1].map((index) => <select key={index}

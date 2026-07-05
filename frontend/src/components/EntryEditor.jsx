@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { api } from '../api'
-import { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN, ALL_TOPICS } from '../classification'
+import { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN, SUB_TOPICS_BY_TOPIC, ALL_TOPICS, displaySource, displayType } from '../classification'
 
 function splitTopics(value) {
   return Array.from(new Set(value.split(/[,，\n]/).map((s) => s.trim()).filter(Boolean)))
@@ -11,9 +11,10 @@ export default function EntryEditor({ entry, showDate = false, showMood = false,
     body: entry.body || '',
     logged_for: entry.logged_for || '',
     mood: entry.mood || '',
-    entry_type: entry.entry_type || '',
+    entry_type: displayType(entry.entry_type) || '',
     domain: entry.domain || '',
     main_topic: entry.main_topic || '',
+    sub_topic: entry.sub_topic || '',
     related_topics: entry.related_topics || [],
     tags: (entry.tags || entry.topics || []).join('，'),
   })
@@ -44,6 +45,7 @@ export default function EntryEditor({ entry, showDate = false, showMood = false,
         entry_type: draft.entry_type || null,
         domain: draft.domain || null,
         main_topic: draft.main_topic || null,
+        sub_topic: draft.sub_topic || null,
         related_topics: draft.related_topics.filter((v) => v !== draft.main_topic).slice(0, 2),
         tags: splitTopics(draft.tags).slice(0, 5),
         highlights: (entry.highlights || []).filter((quote) => draft.body.includes(quote)),
@@ -66,12 +68,21 @@ export default function EntryEditor({ entry, showDate = false, showMood = false,
         </select></label>
         <label>领域<select value={draft.domain} onChange={(e) => {
           const domain = e.target.value
-          setDraft((d) => ({ ...d, domain, main_topic: (TOPICS_BY_DOMAIN[domain] || []).includes(d.main_topic) ? d.main_topic : '' }))
+          setDraft((d) => {
+            const main_topic = (TOPICS_BY_DOMAIN[domain] || []).includes(d.main_topic) ? d.main_topic : ''
+            return { ...d, domain, main_topic, sub_topic: main_topic ? d.sub_topic : '' }
+          })
         }}>
           <option value="">未分类</option>{DOMAINS.map((v) => <option key={v}>{v}</option>)}
         </select></label>
-        <label>主轴<select value={draft.main_topic} onChange={(e) => set('main_topic', e.target.value)} disabled={!draft.domain}>
+        <label>主题<select value={draft.main_topic} onChange={(e) => {
+          const main_topic = e.target.value
+          setDraft((d) => ({ ...d, main_topic, sub_topic: (SUB_TOPICS_BY_TOPIC[main_topic] || []).includes(d.sub_topic) ? d.sub_topic : '' }))
+        }} disabled={!draft.domain}>
           <option value="">未分类</option>{(TOPICS_BY_DOMAIN[draft.domain] || []).map((v) => <option key={v}>{v}</option>)}
+        </select></label>
+        <label>子题<select value={draft.sub_topic} onChange={(e) => set('sub_topic', e.target.value)} disabled={!draft.main_topic}>
+          <option value="">未分类</option>{(SUB_TOPICS_BY_TOPIC[draft.main_topic] || []).map((v) => <option key={v}>{v}</option>)}
         </select></label>
       </div>
       <label>关联（最多 2 个）</label>
@@ -84,7 +95,7 @@ export default function EntryEditor({ entry, showDate = false, showMood = false,
       </div>
       <label>标签</label>
       <input value={draft.tags} onChange={(e) => set('tags', e.target.value)} placeholder="最多 5 个，例如 专注达，反跳，他人经验" />
-      <div className="entry-editor-source">来源：{entry.source || (entry.source_item_id ? '截图' : '自己')}</div>
+      <div className="entry-editor-source">来源：{displaySource(entry.source, entry.source_item_id ? '图片' : '我')}</div>
       {error && <div className="banner-error">{error}</div>}
       <div className="entry-editor-actions">
         <span />

@@ -1,15 +1,17 @@
 // 普通卡片只展示分类。所有修改集中到统一“编辑”入口，避免误删标签或误改分类。
+import { displaySource, displayType } from '../classification'
+
 export default function ClassificationMeta({ entry, actions }) {
-  const source = entry.source || (entry.source_item_id ? '截图' : '自己')
+  const source = displaySource(entry.source || entry.source_label, entry.source_item_id ? '图片' : '我')
   const tags = Array.isArray(entry.tags) ? entry.tags.filter(Boolean)
     : (Array.isArray(entry.topics) ? entry.topics.filter(Boolean) : [])
   const related = Array.isArray(entry.related_topics) ? entry.related_topics.filter(Boolean) : []
   const pending = entry.ai_classify_status === 'pending' || entry.ai_classify_status == null
   const failed = entry.ai_classify_status === 'failed'
-  const values = [entry.entry_type, entry.domain, entry.main_topic, source].filter(Boolean)
+  const values = [displayType(entry.entry_type), entry.domain, entry.main_topic, entry.sub_topic].filter(Boolean)
   const summary = pending ? `AI 整理中… · ${source}` : failed
     ? `分类暂未完成 · ${source}`
-    : (values.length ? values.join(' · ') : `未分类 · ${source}`)
+    : (values.length ? `${values.join(' · ')} · 来源：${source}` : `未分类 · 来源：${source}`)
 
   return (
     <div className="class-meta">

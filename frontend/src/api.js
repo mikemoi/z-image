@@ -91,7 +91,7 @@ export const api = {
   deleteNote: (id) => req(`/feed/notes/${id}/soft-delete`, { method: 'PATCH' }),
   restoreNote: (id) => req(`/feed/notes/${id}/restore`, { method: 'POST' }),
   purgeNote: (id) => req(`/feed/notes/${id}/purge`, { method: 'DELETE' }),
-  search: (q) => req(`/search?q=${encodeURIComponent(q)}`),
+  search: (q, scope = 'all') => req(`/search?q=${encodeURIComponent(q)}&scope=${encodeURIComponent(scope)}`),
 
   // 「问问 AI」:按需生成看法
   insight: (id, refresh = false) =>
@@ -115,6 +115,7 @@ export const api = {
   ideas: () => req('/entries/ideas'),
   plans: () => req('/entries/plans'),
   logs: () => req('/entries/logs'),
+  timeline: (date) => req(`/entries/timeline${date ? `?date=${encodeURIComponent(date)}` : ''}`),
   onThisDay: () => req('/entries/logs/on-this-day'),
   updateEntry: (id, patch) =>
     req(`/entries/${id}`, {
@@ -143,4 +144,19 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),
     }),
+  reclassifyAll: (payload) =>
+    req('/admin/reclassify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  candidates: () => req('/candidates'),
+  approveCandidate: (id) => req(`/candidates/${id}/approve`, { method: 'POST' }),
+  mergeCandidate: (id, target_name) =>
+    req(`/candidates/${id}/merge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target_name }),
+    }),
+  ignoreCandidate: (id) => req(`/candidates/${id}/ignore`, { method: 'POST' }),
 }

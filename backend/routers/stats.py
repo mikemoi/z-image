@@ -25,11 +25,13 @@ async def overview():
                WHERE deleted_at IS NULL GROUP BY kind"""
         ).fetchall()
         type_rows = conn.execute(
-            """SELECT entry_type AS name, count(*) AS c FROM (
+            """SELECT CASE WHEN entry_type='句子' THEN '想法'
+                           WHEN entry_type='决策' THEN '规则'
+                           ELSE entry_type END AS name, count(*) AS c FROM (
                    SELECT entry_type FROM image.items WHERE deleted_at IS NULL
                    UNION ALL
                    SELECT entry_type FROM core.entries WHERE deleted_at IS NULL
-               ) x WHERE entry_type IS NOT NULL GROUP BY entry_type ORDER BY c DESC"""
+               ) x WHERE entry_type IS NOT NULL GROUP BY name ORDER BY c DESC"""
         ).fetchall()
         domain_rows = conn.execute(
             """SELECT domain AS name, count(*) AS c FROM (
@@ -45,14 +47,23 @@ async def overview():
                    SELECT main_topic FROM core.entries WHERE deleted_at IS NULL
                ) x WHERE main_topic IS NOT NULL GROUP BY main_topic ORDER BY c DESC"""
         ).fetchall()
+        sub_topic_rows = conn.execute(
+            """SELECT sub_topic AS name, count(*) AS c FROM (
+                   SELECT sub_topic FROM image.items WHERE deleted_at IS NULL
+                   UNION ALL
+                   SELECT sub_topic FROM core.entries WHERE deleted_at IS NULL
+               ) x WHERE sub_topic IS NOT NULL GROUP BY sub_topic ORDER BY c DESC"""
+        ).fetchall()
         source_rows = conn.execute(
-            """SELECT source AS name, count(*) AS c FROM (
-                   SELECT COALESCE(source, '截图') AS source
+            """SELECT CASE WHEN source='自己' THEN '我'
+                           WHEN source='截图' THEN '图片'
+                           ELSE source END AS name, count(*) AS c FROM (
+                   SELECT COALESCE(source, '图片') AS source
                    FROM image.items WHERE deleted_at IS NULL
                    UNION ALL
-                   SELECT COALESCE(source, CASE WHEN source_item_id IS NULL THEN '自己' ELSE '截图' END) AS source
+                   SELECT COALESCE(source, '我') AS source
                    FROM core.entries WHERE deleted_at IS NULL
-               ) x WHERE source IS NOT NULL GROUP BY source"""
+               ) x WHERE source IS NOT NULL GROUP BY name"""
         ).fetchall()
         status_rows = conn.execute(
             """SELECT state AS name, count(*) AS c FROM (
@@ -80,7 +91,8 @@ async def overview():
     total = screenshots + sum(kinds.values())
     return OverviewStats(
         total=total, contents=contents, entry_types=_dict(type_rows),
-        domains=_dict(domain_rows), main_topics=_dict(topic_rows), sources=_dict(source_rows),
+        domains=_dict(domain_rows), main_topics=_dict(topic_rows),
+        sub_topics=_dict(sub_topic_rows), sources=_dict(source_rows),
         classify_statuses=_dict(status_rows),
     )
 

@@ -31,9 +31,9 @@ class _FakeConnection:
             "mood": params[2], "pinned": params[3], "logged_for": params[4],
             "source_item_id": params[5], "theme": None, "promoted_at": None,
             "entry_type": params[6], "domain": params[7], "main_topic": params[8],
-            "related_topics": None, "tags": None, "use_tag": params[11],
-            "source": params[12], "topics": None, "ai_classify_status": "pending",
-            "highlights": params[14],
+            "sub_topic": params[9], "related_topics": None, "tags": None, "use_tag": params[12],
+            "source": params[13], "topics": None, "ai_classify_status": "pending",
+            "highlights": params[15],
             "ai_classified_at": None, "ai_classify_output": None,
             "created_at": now, "updated_at": now,
         })
@@ -54,8 +54,8 @@ class _CaptureConnection:
             "mood": None, "pinned": False, "logged_for": None,
             "source_item_id": None, "theme": None, "promoted_at": None,
             "entry_type": "规则", "domain": None, "use_tag": None,
-            "main_topic": None, "related_topics": None, "tags": None,
-            "source": "自己", "topics": None, "ai_classify_status": "done",
+            "main_topic": None, "sub_topic": None, "related_topics": None, "tags": None,
+            "source": "我", "topics": None, "ai_classify_status": "done",
             "highlights": None,
             "ai_classified_at": None, "ai_classify_output": None,
             "created_at": now, "updated_at": now,
@@ -69,16 +69,18 @@ class ClassificationContractTests(unittest.TestCase):
     def test_normalize_accepts_fixed_topics_and_limits_tags(self):
         out = normalize({
             "entry_type": "知识", "domain": "身心", "main_topic": "药物",
+            "sub_topic": "专注达",
             "related_topics": ["ADHD", "睡眠", "交易"],
             "tags": [" 专注达 ", "反跳", "", "他人经验", "一", "二", "三"],
-            "highlights": [" 第一句。 ", "第二句。", "第三句。", "第四句。"],
+            "candidate_tags": ["新标签"],
         })
         self.assertEqual(out["entry_type"], "知识")
         self.assertEqual(out["domain"], "身心")
         self.assertEqual(out["main_topic"], "药物")
+        self.assertEqual(out["sub_topic"], "专注达")
         self.assertEqual(out["related_topics"], ["ADHD", "睡眠"])
         self.assertEqual(out["tags"], ["专注达", "反跳", "他人经验", "一", "二"])
-        self.assertEqual(out["highlights"], ["第一句。", "第二句。", "第三句。"])
+        self.assertEqual(out["candidate_tags"], ["新标签"])
 
     def test_normalize_rejects_unknown_fixed_values(self):
         out = normalize({"entry_type": "文章", "domain": "工作", "main_topic": "经济"})
@@ -87,7 +89,7 @@ class ClassificationContractTests(unittest.TestCase):
         self.assertIsNone(out["main_topic"])
 
     def test_entry_models_enforce_fixed_enums(self):
-        EntryCreate(body="合法", entry_type="句子", domain="方向", main_topic="规则")
+        EntryCreate(body="合法", entry_type="想法", domain="方向", main_topic="规则", sub_topic="不做清单")
         EntryUpdate(entry_type="记录", domain="生活", main_topic="日常")
         with self.assertRaises(ValidationError):
             EntryCreate(body="非法", entry_type="文章")
@@ -119,13 +121,13 @@ class EntrySourceRuleTests(unittest.IsolatedAsyncioTestCase):
             entry = await create_entry(EntryCreate(body="来源测试", source_item_id=source_item_id))
         return entry
 
-    async def test_without_source_item_is_own(self):
+    async def test_without_source_item_is_mine(self):
         entry = await self._create(None)
-        self.assertEqual(entry.source, "自己")
+        self.assertEqual(entry.source, "我")
 
-    async def test_with_source_item_is_screenshot(self):
+    async def test_with_source_item_still_mine(self):
         entry = await self._create(42)
-        self.assertEqual(entry.source, "截图")
+        self.assertEqual(entry.source, "我")
 
 
 class EntryClassificationWorkflowTests(unittest.IsolatedAsyncioTestCase):
@@ -156,6 +158,7 @@ class EntryClassificationWorkflowTests(unittest.IsolatedAsyncioTestCase):
         sql, _params = conn.calls[0]
         self.assertIn("entry_type=NULL", sql)
         self.assertIn("main_topic=NULL", sql)
+        self.assertIn("sub_topic=NULL", sql)
         self.assertIn("ai_classify_status='pending'", sql)
 
 

@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 from models.entries import (
     EntryType, Domain, FixedTopic, validate_topic_tree_values,
+    SubTopic,
 )
 
 
@@ -25,9 +26,10 @@ class ItemBrief(BaseModel):
     entry_type: EntryType | None = None
     domain: Domain | None = None
     main_topic: FixedTopic | None = None
+    sub_topic: SubTopic | None = None
     related_topics: list[FixedTopic] | None = None
     tags: list[str] | None = None
-    source: str = "截图"
+    source: str = "图片"
     topics: list[str] | None = None
     highlights: list[str] | None = None
     ai_classify_status: str | None = None
@@ -61,6 +63,7 @@ class ItemUpdate(BaseModel):
     entry_type: EntryType | None = None
     domain: Domain | None = None
     main_topic: FixedTopic | None = None
+    sub_topic: SubTopic | None = None
     related_topics: list[FixedTopic] | None = Field(default=None, max_length=2)
     tags: list[str] | None = Field(default=None, max_length=5)
     topics: list[str] | None = None
@@ -68,7 +71,7 @@ class ItemUpdate(BaseModel):
 
     @model_validator(mode="after")
     def validate_topic_tree(self):
-        validate_topic_tree_values(self.domain, self.main_topic, self.related_topics)
+        validate_topic_tree_values(self.domain, self.main_topic, self.sub_topic, self.related_topics)
         return self
 
 
@@ -86,6 +89,7 @@ class OverviewStats(BaseModel):
     entry_types: dict[str, int]
     domains: dict[str, int]
     main_topics: dict[str, int]
+    sub_topics: dict[str, int]
     sources: dict[str, int]
     classify_statuses: dict[str, int]
 
@@ -137,6 +141,13 @@ class SearchHit(BaseModel):
     title: str | None = None
     summary: str | None = None
     granularity: str | None = None
+    entry_type: EntryType | None = None
+    domain: Domain | None = None
+    main_topic: FixedTopic | None = None
+    sub_topic: SubTopic | None = None
+    related_topics: list[FixedTopic] | None = None
+    tags: list[str] | None = None
+    source_label: str | None = None
     snippet: str | None = None       # 正文里命中词周围的片段,可空
 
 

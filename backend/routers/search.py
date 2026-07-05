@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from auth import require_token
 from db import get_conn
 from models.items import SearchHit
+from classification_schema import normalize_entry_type, normalize_source
 
 router = APIRouter(prefix="/api/search", tags=["search"], dependencies=[Depends(require_token)])
 
@@ -24,15 +25,30 @@ def _snippet(text: str, q: str, span: int = 40) -> str | None:
     return ("…" if start > 0 else "") + text[start:end].strip() + ("…" if end < len(text) else "")
 
 
+def _scope_sql(alias: str, scope: str) -> str:
+    source = f"COALESCE({alias}.source, '')"
+    if scope == "mine":
+        return f" AND {source} IN ('我', '自己')"
+    if scope == "external":
+        return f" AND {source} IN ('图片', '截图', '文件')"
+    return ""
+
+
 @router.get("", response_model=list[SearchHit])
-async def search(q: str = Query(..., min_length=1), limit: int = Query(default=50, le=200)):
+async def search(
+    q: str = Query(..., min_length=1),
+    scope: str = Query(default="all", pattern="^(all|mine|external)$"),
+    limit: int = Query(default=50, le=200),
+):
     """按关键词检索全部截图条目(标题/摘要/正文)+ 手写文字(速记/日志/计划/剪藏)。"""
     like = f"%{q}%"
     hits: list[SearchHit] = []
     with get_conn() as conn:
         img_rows = conn.execute(
             """SELECT i.id AS item_id, f.checksum, i.title, i.summary, i.granularity,
-                      c.clean_text, i.created_at
+                      c.clean_text, i.entry_type, i.domain, i.main_topic, i.sub_topic,
+                      i.related_topics, COALESCE(i.tags, i.topics) AS tags,
+                      COALESCE(i.source, '图片') AS source_label, i.created_at
                FROM image.items i
                JOIN image.files f ON f.id = i.file_id
                LEFT JOIN LATERAL (
@@ -42,14 +58,18 @@ async def search(q: str = Query(..., min_length=1), limit: int = Query(default=5
                ) c ON true
                WHERE i.deleted_at IS NULL
                  AND (i.title ILIKE %s OR i.summary ILIKE %s OR c.clean_text ILIKE %s)
+                 """ + _scope_sql("i", scope) + """
                ORDER BY i.created_at DESC
                LIMIT %s""",
             (like, like, like, limit),
         ).fetchall()
         entry_rows = conn.execute(
-            """SELECT id AS entry_id, kind, body, created_at
+            """SELECT id AS entry_id, kind, body, entry_type, domain, main_topic, sub_topic,
+                      related_topics, COALESCE(tags, topics) AS tags,
+                      COALESCE(source, '我') AS source_label, created_at
                FROM core.entries
                WHERE deleted_at IS NULL AND body ILIKE %s
+                 """ + _scope_sql("core.entries", scope) + """
                ORDER BY created_at DESC
                LIMIT %s""",
             (like, limit),
@@ -60,10 +80,18 @@ async def search(q: str = Query(..., min_length=1), limit: int = Query(default=5
         hits.append(SearchHit(
             source="image", item_id=r["item_id"], checksum=r["checksum"],
             title=r["title"], summary=r["summary"], granularity=r["granularity"], snippet=snippet,
+            entry_type=normalize_entry_type(r.get("entry_type")), domain=r.get("domain"),
+            main_topic=r.get("main_topic"), sub_topic=r.get("sub_topic"),
+            related_topics=r.get("related_topics"), tags=r.get("tags"),
+            source_label=normalize_source(r.get("source_label"), "图片"),
         ))
     for r in entry_rows:
         hits.append(SearchHit(
             source="entry", entry_id=r["entry_id"], kind=r["kind"],
             summary=r["body"][:120], snippet=_snippet(r["body"], q),
+            entry_type=normalize_entry_type(r.get("entry_type")), domain=r.get("domain"),
+            main_topic=r.get("main_topic"), sub_topic=r.get("sub_topic"),
+            related_topics=r.get("related_topics"), tags=r.get("tags"),
+            source_label=normalize_source(r.get("source_label"), "我"),
         ))
     return hits[:limit]

@@ -15,6 +15,9 @@ import Plans from './pages/Plans'
 import Overview from './pages/Overview'
 import Trash from './pages/Trash'
 import ReviewSession from './pages/ReviewSession'
+import Reclassify from './pages/Reclassify'
+import Timeline from './pages/Timeline'
+import Approvals from './pages/Approvals'
 
 export default function App() {
   return (
@@ -36,6 +39,9 @@ export default function App() {
             <Route path="/overview" element={<Overview />} />
             <Route path="/trash" element={<Trash />} />
             <Route path="/review" element={<ReviewSession />} />
+            <Route path="/reclassify" element={<Reclassify />} />
+            <Route path="/timeline" element={<Timeline />} />
+            <Route path="/approvals" element={<Approvals />} />
           </Routes>
         </main>
         <TabBar />

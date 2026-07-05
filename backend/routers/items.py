@@ -22,10 +22,38 @@ from models.items import (
     InsightResult, AdoptTheme,
 )
 from models.entries import CleanupItem, validate_topic_tree_values
+from classification_schema import normalize_entry_type, normalize_source
 
 router = APIRouter(prefix="/api/items", tags=["items"], dependencies=[Depends(require_token)])
 
 IMAGE_DIR = Path(FILES_ROOT) / "image"
+
+
+def _item_data(row) -> dict:
+    data = dict(row)
+    data["source"] = normalize_source(data.get("source"), "图片") or "图片"
+    data["entry_type"] = normalize_entry_type(data.get("entry_type"))
+    return data
+
+
+def _brief(row) -> ItemBrief:
+    return ItemBrief(**_item_data(row))
+
+
+def _detail(row, content) -> ItemDetail:
+    return ItemDetail(
+        **_item_data(row),
+        clean_text=content["clean_text"] if content else None,
+        raw_text=content["raw_text"] if content else None,
+    )
+
+
+def _source_values(value: str) -> tuple[str, ...]:
+    if value == "图片":
+        return ("图片", "截图")
+    if value == "我":
+        return ("我", "自己")
+    return (value,)
 
 
 def _ext_from_name(name: str) -> str:
@@ -385,8 +413,9 @@ def _review_filter_sql(entry_type: str | None, domain: str | None, main_topic: s
         clauses.append("COALESCE(i.tags, i.topics) @> %s")
         params.append(Jsonb([tag]))
     if source:
-        clauses.append("COALESCE(i.source, '截图')=%s")
-        params.append(source)
+        values = _source_values(source)
+        clauses.append("COALESCE(i.source, '图片') = ANY(%s)")
+        params.append(list(values))
     return clauses, params
 
 
@@ -400,8 +429,8 @@ def _reading_queue(where: str, limit: int, order: str,
         rows = conn.execute(
             f"""SELECT i.id, i.file_id, f.checksum, i.status, i.title, i.summary,
                        i.theme, i.use_tag, i.granularity, i.entry_type, i.domain,
-                       i.main_topic, i.related_topics, COALESCE(i.tags, i.topics) AS tags,
-                       COALESCE(i.source, '截图') AS source, i.topics,
+                       i.main_topic, i.sub_topic, i.related_topics, COALESCE(i.tags, i.topics) AS tags,
+                       COALESCE(i.source, '图片') AS source, i.topics,
                        i.highlights, i.ai_classify_status,
                        i.reviewed_at, i.promoted_at, i.created_at
                 FROM image.items i JOIN image.files f ON f.id=i.file_id
@@ -410,7 +439,7 @@ def _reading_queue(where: str, limit: int, order: str,
             [*params, limit],
         ).fetchall()
     return ItemList(total=len(rows), limit=limit, offset=0,
-                    items=[ItemBrief(**r) for r in rows])
+                    items=[_brief(r) for r in rows])
 
 
 @router.get("/review-queue", response_model=ItemList)
@@ -438,12 +467,23 @@ async def review_facets():
         result = {}
         for key, column in (("entry_types", "entry_type"), ("domains", "domain"),
                             ("main_topics", "main_topic"), ("sources", "source")):
-            rows = conn.execute(
-                f"""SELECT i.{column} AS value, count(*) AS c FROM image.items i
-                    WHERE i.deleted_at IS NULL AND i.status='ok' AND i.reviewed_at IS NULL
-                      AND i.{column} IS NOT NULL
-                    GROUP BY i.{column}"""
-            ).fetchall()
+            if key == "sources":
+                rows = conn.execute(
+                    """SELECT CASE WHEN COALESCE(i.source, '图片')='截图' THEN '图片'
+                                   WHEN COALESCE(i.source, '图片')='自己' THEN '我'
+                                   ELSE COALESCE(i.source, '图片') END AS value,
+                              count(*) AS c
+                       FROM image.items i
+                       WHERE i.deleted_at IS NULL AND i.status='ok' AND i.reviewed_at IS NULL
+                       GROUP BY value"""
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    f"""SELECT i.{column} AS value, count(*) AS c FROM image.items i
+                        WHERE i.deleted_at IS NULL AND i.status='ok' AND i.reviewed_at IS NULL
+                          AND i.{column} IS NOT NULL
+                        GROUP BY i.{column}"""
+                ).fetchall()
             result[key] = {row["value"]: row["c"] for row in rows}
         tags = conn.execute(
             """SELECT tag.value, count(DISTINCT i.id) AS c
@@ -457,7 +497,7 @@ async def review_facets():
         result["tags"] = {row["value"]: row["c"] for row in tags}
     result.setdefault("sources", {})
     if total and not result["sources"]:
-        result["sources"] = {"截图": total}
+        result["sources"] = {"图片": total}
     return {"total": total, **result}
 
 
@@ -473,7 +513,7 @@ async def reclassify_item(item_id: int):
     with get_conn() as conn:
         row = conn.execute(
             """UPDATE image.items
-               SET entry_type=NULL, domain=NULL, main_topic=NULL,
+               SET entry_type=NULL, domain=NULL, main_topic=NULL, sub_topic=NULL,
                    related_topics=NULL, tags=NULL,
                    ai_classify_status='pending', ai_classified_at=NULL, updated_at=now()
                WHERE id=%s AND deleted_at IS NULL RETURNING id""",
@@ -514,8 +554,8 @@ async def list_items(
             where.append(f"{col} = %s")
             params.append(val)
     if source is not None:
-        where.append("COALESCE(i.source, '截图') = %s")
-        params.append(source)
+        where.append("COALESCE(i.source, '图片') = ANY(%s)")
+        params.append(list(_source_values(source)))
     if tag is not None:
         where.append("COALESCE(i.tags, i.topics) @> %s")
         params.append(Jsonb([tag]))
@@ -528,8 +568,8 @@ async def list_items(
         rows = conn.execute(
             f"""SELECT i.id, i.file_id, f.checksum, i.status, i.title, i.summary,
                        i.theme, i.use_tag, i.granularity,
-                       i.entry_type, i.domain, i.main_topic, i.related_topics,
-                       COALESCE(i.tags, i.topics) AS tags, COALESCE(i.source, '截图') AS source,
+                       i.entry_type, i.domain, i.main_topic, i.sub_topic, i.related_topics,
+                       COALESCE(i.tags, i.topics) AS tags, COALESCE(i.source, '图片') AS source,
                        i.topics, i.highlights, i.ai_classify_status,
                        i.reviewed_at, i.promoted_at, i.created_at
                 FROM image.items i
@@ -542,7 +582,7 @@ async def list_items(
 
     return ItemList(
         total=total, limit=limit, offset=offset,
-        items=[ItemBrief(**r) for r in rows],
+        items=[_brief(r) for r in rows],
     )
 
 
@@ -553,8 +593,8 @@ async def get_item(item_id: int):
         row = conn.execute(
             """SELECT i.id, i.file_id, f.checksum, f.original_filename, i.status,
                       i.title, i.summary, i.theme, i.use_tag, i.granularity,
-                      i.entry_type, i.domain, i.main_topic, i.related_topics,
-                      COALESCE(i.tags, i.topics) AS tags, COALESCE(i.source, '截图') AS source,
+                      i.entry_type, i.domain, i.main_topic, i.sub_topic, i.related_topics,
+                      COALESCE(i.tags, i.topics) AS tags, COALESCE(i.source, '图片') AS source,
                       i.topics, i.highlights, i.ai_classify_status,
                       i.is_ocr_suitable, i.reviewed_at, i.promoted_at, i.created_at
                FROM image.items i
@@ -571,15 +611,11 @@ async def get_item(item_id: int):
             (item_id,),
         ).fetchone()
 
-    return ItemDetail(
-        **row,
-        clean_text=content["clean_text"] if content else None,
-        raw_text=content["raw_text"] if content else None,
-    )
+    return _detail(row, content)
 
 
 _UPDATABLE = {"title", "theme", "use_tag", "status", "granularity",
-              "entry_type", "domain", "main_topic", "related_topics", "tags",
+              "entry_type", "domain", "main_topic", "sub_topic", "related_topics", "tags",
               "topics", "highlights"}
 
 
@@ -589,10 +625,12 @@ async def update_item(item_id: int, patch: ItemUpdate):
     fields = {k: v for k, v in patch.model_dump(exclude_unset=True).items() if k in _UPDATABLE}
     if not fields:
         raise HTTPException(400, "no updatable fields provided")
-    if fields.keys() & {"domain", "main_topic", "related_topics"}:
+    if "entry_type" in fields:
+        fields["entry_type"] = normalize_entry_type(fields["entry_type"])
+    if fields.keys() & {"domain", "main_topic", "sub_topic", "related_topics"}:
         with get_conn() as conn:
             current = conn.execute(
-                """SELECT domain, main_topic, related_topics FROM image.items
+                """SELECT domain, main_topic, sub_topic, related_topics FROM image.items
                    WHERE id = %s AND deleted_at IS NULL""",
                 (item_id,),
             ).fetchone()
@@ -602,6 +640,7 @@ async def update_item(item_id: int, patch: ItemUpdate):
             validate_topic_tree_values(
                 fields.get("domain", current["domain"]),
                 fields.get("main_topic", current["main_topic"]),
+                fields.get("sub_topic", current["sub_topic"]),
                 fields.get("related_topics", current["related_topics"]),
             )
         except ValueError as e:
@@ -611,7 +650,7 @@ async def update_item(item_id: int, patch: ItemUpdate):
             fields[name] = Jsonb(fields[name]) if fields[name] is not None else None
     if "highlights" in fields:
         fields["highlights"] = Jsonb(fields["highlights"]) if fields["highlights"] is not None else None
-    if fields.keys() & {"entry_type", "domain", "main_topic", "related_topics", "tags"}:
+    if fields.keys() & {"entry_type", "domain", "main_topic", "sub_topic", "related_topics", "tags"}:
         fields.setdefault("ai_classify_status", "done")
     sets = ", ".join(f"{k} = %s" for k in fields)
     params = list(fields.values()) + [item_id]

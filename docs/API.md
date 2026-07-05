@@ -34,7 +34,7 @@
 | POST | `/{id}/restore` | 恢复 |
 | DELETE | `/{id}/purge` | 永久删除 item；无其他引用时同时删原图 |
 
-Item 的统一分类字段为 `entry_type/domain/main_topic/related_topics/tags/source`；`highlights` 保存重点。旧 `theme/use_tag/topics/granularity` 仍保留兼容。
+Item 的统一分类字段为 `entry_type/domain/main_topic/sub_topic/related_topics/tags/source`；`source` 为 `我/图片/文件`，截图默认为 `图片`；`highlights` 保存人工重点。旧 `theme/use_tag/topics/granularity` 仍保留兼容。
 
 ## 文字入口 `/api/entries`
 
@@ -47,16 +47,17 @@ Item 的统一分类字段为 `entry_type/domain/main_topic/related_topics/tags/
   "kind": "idea",
   "body": "转化，而不是惩罚。",
   "source_item_id": null,
-  "entry_type": "句子",
+  "entry_type": "想法",
   "domain": "方向",
   "main_topic": "规则",
+  "sub_topic": "不做清单",
   "related_topics": ["正向循环"],
   "tags": ["心态"],
   "highlights": ["转化，而不是惩罚。"]
 }
 ```
 
-`kind` 仅允许实际业务值 `idea/log/plan`（未知值当前会回退为 idea）。服务端忽略客户端来源推断：有 `source_item_id` 为“截图”，否则为“自己”。新建状态为 `filed`，分类为空时后台自动分类。
+`kind` 仅允许实际业务值 `idea/log/plan`（未知值当前会回退为 idea）。服务端统一写 `source=我`；`source_item_id` 只表示关联图片，不改变来源。`kind=idea` 默认 `entry_type=想法`，`kind=log` 默认 `entry_type=记录`。新建状态为 `filed`，分类为空时后台自动分类。
 
 ### 路由
 
@@ -68,6 +69,7 @@ Item 的统一分类字段为 `entry_type/domain/main_topic/related_topics/tags/
 | GET | `/plans` | pinned 计划 |
 | GET | `/logs` | 日志时间线 |
 | GET | `/logs/on-this-day` | 往年今天 |
+| GET | `/timeline?date=YYYY-MM-DD` | 某一天的记录；默认 Europe/Madrid 今天，按 created_at 正序 |
 | PATCH | `/{id}` | 修改正文或分类；分类字段人工修改后状态置 done |
 | POST | `/{id}/promote` | 想法精选入 core.knowledge，重复调用返回 409 |
 | POST | `/{id}/reclassify` | 清空新分类字段并置 pending；旧字段和人工重点不清除 |
@@ -76,7 +78,17 @@ Item 的统一分类字段为 `entry_type/domain/main_topic/related_topics/tags/
 | POST | `/{id}/restore` | 从回收站恢复 |
 | DELETE | `/{id}/purge` | 永久删除已在回收站的 Entry |
 
-Entry 响应包含：`entry_type/domain/main_topic/related_topics/tags/source/highlights/ai_classify_status/ai_classified_at/ai_classify_output`，以及旧字段 `kind/theme/use_tag/topics/source_item_id`。
+Entry 响应包含：`entry_type/domain/main_topic/sub_topic/related_topics/tags/source/highlights/ai_classify_status/ai_classified_at/ai_classify_output`，以及旧字段 `kind/theme/use_tag/topics/source_item_id`。
+
+## 维护 `/api/admin` 与候选 `/api/candidates`
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/admin/reclassify` | 只排队重新整理分类，不同步调用 AI；`scope=all/mine/external/unclassified/entries/items`，`mode=fill_missing/force` |
+| GET | `/api/candidates` | 查看出现次数达到阈值的候选标签/候选子题 |
+| POST | `/api/candidates/{id}/approve` | 批准候选 |
+| POST | `/api/candidates/{id}/merge` | 合并到已有名称 |
+| POST | `/api/candidates/{id}/ignore` | 忽略候选 |
 
 ## 设置 `/api/settings`
 
@@ -97,7 +109,7 @@ Entry 响应包含：`entry_type/domain/main_topic/related_topics/tags/source/hi
 | GET | `/api/stats/overview` | “我的 → 数据概览”；统计内容、类型、领域、主轴、来源和分类状态 |
 | GET | `/api/stats/theme-candidates` | 兼容旧 suggested_theme 聚合；当前页面主线不再使用 |
 | POST | `/api/stats/theme-candidates/adopt` | 兼容旧 theme 候选批量采纳 |
-| GET | `/api/search?q=` | 搜索截图标题/摘要/OCR 与 Entry 正文 |
+| GET | `/api/search?q=&scope=all` | 搜索截图标题/摘要/OCR 与 Entry 正文；`scope=all/mine/external` |
 | GET | `/api/feed/resurface` | 轮换 core.notes |
 | PATCH | `/api/feed/notes/{id}/soft-delete` | 软删碎片 |
 | POST | `/api/feed/notes/{id}/restore` | 恢复碎片 |
