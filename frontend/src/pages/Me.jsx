@@ -18,7 +18,7 @@ export default function Me() {
           <Icon name="spark" size={20} className="me-ico" /><span>AI 设置 · 用量 / 模型</span><span className="me-arrow">›</span>
         </button>
         <button className="me-item" onClick={() => nav('/plans')}>
-          <Icon name="flag" size={20} className="me-ico" /><span>计划</span><span className="me-arrow">›</span>
+          <Icon name="flag" size={20} className="me-ico" /><span>长期计划</span><span className="me-arrow">›</span>
         </button>
       </div>
 

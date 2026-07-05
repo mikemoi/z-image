@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import ClassificationMeta from '../components/ClassificationMeta'
+import EntryEditor from '../components/EntryEditor'
 
 // 日志:带日期的文字,按天翻。价值在回看——往年今天温柔冒出。绝不 streak、不催写。
 const MOODS = ['😞', '😕', '😐', '🙂', '😄']
@@ -24,6 +25,7 @@ export default function Logs() {
   const [body, setBody] = useState('')
   const [mood, setMood] = useState('')
   const [loading, setLoading] = useState(true)
+  const [editId, setEditId] = useState(null)
 
   function load() {
     setLoading(true)
@@ -43,13 +45,18 @@ export default function Logs() {
   async function del(e) {
     await api.deleteEntry(e.id)
     setLogs((xs) => xs.filter((x) => x.id !== e.id))
+    setPast((xs) => xs.filter((x) => x.id !== e.id))
+  }
+  function saved(up) {
+    setLogs((xs) => xs.map((x) => (x.id === up.id ? up : x)))
+    setPast((xs) => xs.map((x) => (x.id === up.id ? up : x)))
+    setEditId(null)
   }
 
   return (
     <div className="page">
       <div className="browse-head">
         <button className="back" onClick={() => nav('/')}>‹ 首页</button>
-        <button className="text-link" onClick={() => nav('/plans')}>计划 →</button>
       </div>
       <h1 className="page-title">日志</h1>
 
@@ -76,9 +83,14 @@ export default function Logs() {
           <h2 className="section-h">往年今天</h2>
           {past.map((e) => (
             <div key={e.id} className="log-item log-past">
-              <div className="log-date">{fmt(e.logged_for)} {ftime(e.created_at)} {e.mood || ''}</div>
-              <div className="entry-body">{e.body}</div>
-              <ClassificationMeta entry={e} />
+              {editId === e.id ? <EntryEditor entry={e} showDate showMood onCancel={() => setEditId(null)} onSaved={saved} /> : <>
+                <div className="log-date">{fmt(e.logged_for)} {ftime(e.created_at)} {e.mood || ''}</div>
+                <div className="entry-body">{e.body}</div>
+                <ClassificationMeta entry={e} actions={<>
+                  <button onClick={() => setEditId(e.id)}>编辑</button>
+                  <button className="mini-danger" onClick={() => del(e)}>删除</button>
+                </>} />
+              </>}
             </div>
           ))}
         </section>
@@ -93,11 +105,14 @@ export default function Logs() {
         <div className="log-list">
           {logs.map((e) => (
             <div key={e.id} className="log-item">
-              <div className="log-date">{fmt(e.logged_for)} {ftime(e.created_at)} {e.mood || ''}
-                <button className="log-del" onClick={() => del(e)}>删</button>
-              </div>
-              <div className="entry-body">{e.body}</div>
-              <ClassificationMeta entry={e} />
+              {editId === e.id ? <EntryEditor entry={e} showDate showMood onCancel={() => setEditId(null)} onSaved={saved} /> : <>
+                <div className="log-date">{fmt(e.logged_for)} {ftime(e.created_at)} {e.mood || ''}</div>
+                <div className="entry-body">{e.body}</div>
+                <ClassificationMeta entry={e} actions={<>
+                  <button onClick={() => setEditId(e.id)}>编辑</button>
+                  <button className="mini-danger" onClick={() => del(e)}>删除</button>
+                </>} />
+              </>}
             </div>
           ))}
         </div>

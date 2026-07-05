@@ -256,12 +256,8 @@ input { font-family: inherit; font-size: 17px; }
 .card-snippet { font-size: 13px; color: var(--ink-2); margin-top: 4px; }
 
 /* 想法卡的来源截图 */
-.idea-foot { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 .idea-src { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
 .idea-thumb { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; background: var(--line); }
-.idea-themes { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 2px; }
-.chip-sm { padding: 4px 10px; font-size: 13px; }
-.idea-foot .mini { margin-left: 0; }
 
 /* ── 生长的分类:偶遇冒泡(不催办) ─────────────────────────── */
 .grow-card {
@@ -467,19 +463,30 @@ input { font-family: inherit; font-size: 17px; }
 .class-guide-body h3 { margin: 0 0 4px; color: var(--ink, #263b36); font-size: 13px; }
 .class-guide-body p { margin: 2px 0; }
 .class-meta { margin-top: 10px; font-size: 12px; color: var(--muted, #68706b); }
-.class-chips { display: flex; flex-wrap: wrap; gap: 5px; }
-.class-chip { padding: 3px 7px; border-radius: 999px; background: rgba(45, 83, 72, .08); }
 .class-topics { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 7px; align-items: center; color: var(--accent, #356859); }
-.class-source { margin-top: 6px; opacity: .8; }
-.class-selects { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
-.class-selects select {
-  font-size: 13px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 10px;
-  background: var(--bg); color: var(--ink); font-family: inherit;
-}
-.class-topic { cursor: pointer; }
-.class-topic-in {
-  font-size: 13px; width: 72px; padding: 2px 6px; border: 1px dashed var(--line);
-  border-radius: 8px; background: transparent;
-}
-.class-reclass { margin-left: 10px; color: var(--accent); font-size: 12px; }
+.class-meta-foot { display: flex; align-items: center; gap: 10px; margin-top: 8px; min-width: 0; }
+.class-summary { flex: 1; min-width: 0; color: var(--ink-2); line-height: 1.4; }
+.class-actions { display: flex; flex-shrink: 0; align-items: center; gap: 10px; }
+.class-actions button { color: var(--ink-2); font-size: 13px; padding: 3px 0; }
+.class-actions .mini-danger { color: var(--danger); }
 .plan-content { flex: 1; min-width: 0; }
+
+/* 统一 Entry 编辑器:普通卡片只读,所有变更一次保存 */
+.entry-editor { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+.entry-editor > label, .entry-editor-grid label { font-size: 13px; color: var(--ink-2); }
+.entry-editor input, .entry-editor select {
+  width: 100%; padding: 10px 11px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg); color: var(--ink); font: inherit;
+}
+.entry-editor-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.entry-editor-grid select { display: block; margin-top: 4px; font-size: 14px; }
+.entry-editor-source { color: var(--ink-2); font-size: 12px; }
+.entry-editor-actions { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 8px; margin-top: 4px; }
+.entry-editor-actions .entry-reclass { color: var(--accent); }
+.entry-editor-actions .entry-save { background: var(--accent); color: #fff; border-color: var(--accent); }
+.entry-editor-actions button:disabled { opacity: .5; }
+@media (max-width: 380px) {
+  .entry-editor-grid { grid-template-columns: 1fr; }
+  .entry-editor-actions { grid-template-columns: 1fr 1fr; }
+  .entry-editor-actions span { display: none; }
+}

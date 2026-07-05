@@ -3,15 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import Img from '../components/Img'
 import ClassificationMeta from '../components/ClassificationMeta'
+import EntryEditor from '../components/EntryEditor'
 
-// 想法流:看图产生的 + 凭空的。AI 自动分类(类型/领域/用途/标签),可编辑、精选入脑。
+// 想法本身就是一等内容，不再要求二次“精选”。
 export default function Ideas() {
   const nav = useNavigate()
   const [ideas, setIdeas] = useState([])
   const [body, setBody] = useState('')
   const [loading, setLoading] = useState(true)
   const [editId, setEditId] = useState(null)
-  const [editBody, setEditBody] = useState('')
 
   function load() {
     setLoading(true)
@@ -28,15 +28,9 @@ export default function Ideas() {
     await api.deleteEntry(e.id)
     setIdeas((xs) => xs.filter((x) => x.id !== e.id))
   }
-  function startEdit(e) { setEditId(e.id); setEditBody(e.body) }
-  async function saveEdit(e) {
-    const up = await api.updateEntry(e.id, { body: editBody.trim() })
-    setIdeas((xs) => xs.map((x) => (x.id === e.id ? { ...x, body: up.body } : x)))
+  function saved(up) {
+    setIdeas((xs) => xs.map((x) => (x.id === up.id ? up : x)))
     setEditId(null)
-  }
-  async function promote(e) {
-    await api.promoteIdea(e.id)
-    setIdeas((xs) => xs.map((x) => (x.id === e.id ? { ...x, promoted_at: new Date().toISOString() } : x)))
   }
 
   return (
@@ -59,30 +53,19 @@ export default function Ideas() {
           {ideas.map((e) => (
             <div key={e.id} className="entry-card">
               {editId === e.id ? (
-                <>
-                  <textarea className="capture-input" rows={3} value={editBody}
-                    onChange={(ev) => setEditBody(ev.target.value)} />
-                  <div className="entry-acts">
-                    <button className="mini" onClick={() => saveEdit(e)}>保存</button>
-                    <button className="mini" onClick={() => setEditId(null)}>取消</button>
-                  </div>
-                </>
+                <EntryEditor entry={e} onCancel={() => setEditId(null)} onSaved={saved} />
               ) : (
                 <>
                   <div className="entry-body">{e.body}</div>
-                  <ClassificationMeta entry={e} />
-                  <div className="idea-foot">
-                    {e.checksum && (
-                      <div className="idea-src" onClick={() => nav(`/item/${e.source_item_id}`)}>
-                        <Img checksum={e.checksum} className="idea-thumb" /><span>来自截图</span>
-                      </div>
-                    )}
-                    <button className="mini" onClick={() => startEdit(e)}>编辑</button>
-                    <button className="mini" onClick={() => promote(e)} disabled={!!e.promoted_at}>
-                      {e.promoted_at ? '已精选' : '精选'}
+                  {e.checksum && (
+                    <button className="idea-src" onClick={() => nav(`/item/${e.source_item_id}`)}>
+                      <Img checksum={e.checksum} className="idea-thumb" /><span>查看来源截图</span>
                     </button>
-                    <button className="mini mini-danger" onClick={() => del(e)}>删</button>
-                  </div>
+                  )}
+                  <ClassificationMeta entry={e} actions={<>
+                    <button onClick={() => setEditId(e.id)}>编辑</button>
+                    <button className="mini-danger" onClick={() => del(e)}>删除</button>
+                  </>} />
                 </>
               )}
             </div>
