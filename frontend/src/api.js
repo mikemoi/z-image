@@ -64,7 +64,12 @@ export const api = {
   deleteItem: (id) => req(`/items/${id}/soft-delete`, { method: 'PATCH' }),
   restoreItem: (id) => req(`/items/${id}/restore`, { method: 'POST' }),
   purgeItem: (id) => req(`/items/${id}/purge`, { method: 'DELETE' }),
-  reviewQueue: (limit = 10) => req(`/items/review-queue?limit=${limit}`),
+  reviewQueue: (limit = 10, filters = {}) => {
+    const q = new URLSearchParams({ limit: String(limit) })
+    Object.entries(filters).forEach(([k, v]) => { if (v) q.set(k, v) })
+    return req(`/items/review-queue?${q.toString()}`)
+  },
+  reviewFacets: () => req('/items/review-facets'),
   recommendations: (limit = 10) => req(`/items/recommendations?limit=${limit}`),
 
   uploadItems: (files) => {

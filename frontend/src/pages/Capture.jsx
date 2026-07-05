@@ -1,7 +1,6 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
-import HighlightControls from '../components/HighlightControls'
 
 // 记一条:零摩擦捕捉。速记/日志/计划/剪藏共用,写完就走。
 const KINDS = [
@@ -15,8 +14,6 @@ export default function Capture() {
   const [sp] = useSearchParams()
   const [kind, setKind] = useState(sp.get('kind') || 'log')
   const [body, setBody] = useState('')
-  const [highlights, setHighlights] = useState([])
-  const bodyRef = useRef(null)
   const [mood, setMood] = useState('')
   const [msg, setMsg] = useState('')
   const [saving, setSaving] = useState(false)
@@ -27,10 +24,10 @@ export default function Capture() {
     if (!body.trim()) return
     setSaving(true)
     try {
-      const payload = { kind, body: body.trim(), highlights }
+      const payload = { kind, body: body.trim() }
       if (kind === 'log' && mood) payload.mood = mood
       await api.createEntry(payload)
-      setBody(''); setMood(''); setHighlights([])
+      setBody(''); setMood('')
       setMsg(kind === 'log' ? '记下了 ✓' : kind === 'plan' ? '已钉住 ✓' : '收好了 ✓')
       setTimeout(() => setMsg(''), 1800)
     } catch {
@@ -51,7 +48,7 @@ export default function Capture() {
       </div>
       <div className="capture-hint">{cur.hint}</div>
 
-      <textarea ref={bodyRef}
+      <textarea
         className="capture-input"
         value={body}
         onChange={(e) => setBody(e.target.value)}
@@ -59,7 +56,6 @@ export default function Capture() {
         rows={7}
         autoFocus
       />
-      <HighlightControls textareaRef={bodyRef} highlights={highlights} onChange={setHighlights} />
 
       {kind === 'log' && (
         <div className="mood-row">

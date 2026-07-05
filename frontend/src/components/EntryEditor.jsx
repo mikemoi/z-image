@@ -1,15 +1,12 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { api } from '../api'
 import { ENTRY_TYPES, DOMAINS, USE_TAGS } from '../classification'
-import HighlightControls from './HighlightControls'
 
 function splitTopics(value) {
   return Array.from(new Set(value.split(/[,，\n]/).map((s) => s.trim()).filter(Boolean)))
 }
 
 export default function EntryEditor({ entry, showDate = false, showMood = false, onCancel, onSaved }) {
-  const bodyRef = useRef(null)
-  const [highlights, setHighlights] = useState(Array.isArray(entry.highlights) ? entry.highlights : [])
   const [draft, setDraft] = useState({
     body: entry.body || '',
     logged_for: entry.logged_for || '',
@@ -41,7 +38,7 @@ export default function EntryEditor({ entry, showDate = false, showMood = false,
         domain: draft.domain || null,
         use_tag: draft.use_tag || null,
         topics: splitTopics(draft.topics),
-        highlights,
+        highlights: (entry.highlights || []).filter((quote) => draft.body.includes(quote)),
       })
       onSaved(updated)
     } catch {
@@ -49,26 +46,10 @@ export default function EntryEditor({ entry, showDate = false, showMood = false,
     } finally { setSaving(false) }
   }
 
-  async function reclassify() {
-    if (!draft.body.trim()) return
-    setSaving(true); setError('')
-    try {
-      const updated = await api.updateEntry(entry.id, { ...basePayload(), highlights })
-      await api.reclassify(entry.id)
-      onSaved({
-        ...updated, entry_type: null, domain: null, use_tag: null, topics: null,
-        ai_classify_status: 'pending', ai_classified_at: null, ai_classify_output: null,
-      })
-    } catch {
-      setError('重新分类失败，请重试')
-    } finally { setSaving(false) }
-  }
-
   return (
     <div className="entry-editor">
       <label>正文</label>
-      <textarea ref={bodyRef} className="capture-input" rows={4} value={draft.body} onChange={(e) => set('body', e.target.value)} />
-      <HighlightControls textareaRef={bodyRef} highlights={highlights} onChange={setHighlights} />
+      <textarea className="capture-input" rows={4} value={draft.body} onChange={(e) => set('body', e.target.value)} />
       {showDate && <><label>日期</label><input type="date" value={draft.logged_for} onChange={(e) => set('logged_for', e.target.value)} /></>}
       {showMood && <><label>我填写的心情</label><input value={draft.mood} onChange={(e) => set('mood', e.target.value)} placeholder="可选" /></>}
       <div className="entry-editor-grid">
@@ -87,7 +68,6 @@ export default function EntryEditor({ entry, showDate = false, showMood = false,
       <div className="entry-editor-source">来源：{entry.source || (entry.source_item_id ? '截图' : '自己')}</div>
       {error && <div className="banner-error">{error}</div>}
       <div className="entry-editor-actions">
-        <button className="mini entry-reclass" onClick={reclassify} disabled={saving}>让 AI 重新分类</button>
         <span />
         <button className="mini" onClick={onCancel} disabled={saving}>取消</button>
         <button className="mini entry-save" onClick={save} disabled={saving || !draft.body.trim()}>保存</button>

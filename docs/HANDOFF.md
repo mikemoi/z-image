@@ -111,8 +111,9 @@ docker-compose.yml  db(postgres:17)+ backend
 ## 5. 前端要点
 
 - **导航 5 tab**:首页 / 上传 / 想法 / 记录 / 我的。我的包含集中批阅、数据概览、AI 设置、长期计划、回收站和分类说明；个人项目不提供退出登录入口。
-- **详情页操作**:标签 / 精选 / 标重点 / 删除到回收站 + 我的想法输入(存成 idea,挂 source_item_id)。
-- **想法/日志/长期计划**:普通卡片只读，`ClassificationMeta` 只展示 topics 与底部分类；统一 `EntryEditor` 修改正文和分类，并可让 AI 重新分类。想法页不再显示精选按钮，后端 promote 仅兼容旧能力。
+- **详情页操作**:“问问 AI”作为独立理解入口排在人工操作前；标签 / 精选 / 标重点 / 删除到回收站 + 我的想法输入(存成 idea,挂 source_item_id)。
+- **想法/日志/长期计划**:先保存并由 AI 自动处理；普通卡片提供独立“标重点”和“编辑”。`EntryEditor` 只修改正文和分类，不放 AI 操作。想法页不再显示精选按钮，后端 promote/reclassify 仅兼容旧能力。
+- **集中批阅**:连续逐张模式与按分类模式并存；分类入口按新类型/领域/用途展示未阅数量，选择后每批取 10 条。
 - **主题风格**:暖纸底 + 墨青主色 + 线性 SVG 图标(`components/Icon.jsx`),CSS 变量在 `styles.css :root`。
 - **鉴权**:`TokenGate` + token 存 localStorage,`api.js` 每请求带 `Authorization: Bearer`。
 

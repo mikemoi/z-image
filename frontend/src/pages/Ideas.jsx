@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import Img from '../components/Img'
 import ClassificationMeta from '../components/ClassificationMeta'
 import EntryEditor from '../components/EntryEditor'
 import HighlightText from '../components/HighlightText'
-import HighlightControls from '../components/HighlightControls'
+import EntryHighlighter from '../components/EntryHighlighter'
 
 // 想法本身就是一等内容，不再要求二次“精选”。
 function fmtTime(ts) {
@@ -18,10 +18,9 @@ export default function Ideas() {
   const nav = useNavigate()
   const [ideas, setIdeas] = useState([])
   const [body, setBody] = useState('')
-  const [highlights, setHighlights] = useState([])
-  const bodyRef = useRef(null)
   const [loading, setLoading] = useState(true)
   const [editId, setEditId] = useState(null)
+  const [markId, setMarkId] = useState(null)
 
   function load() {
     setLoading(true)
@@ -31,8 +30,8 @@ export default function Ideas() {
 
   async function add() {
     if (!body.trim()) return
-    await api.createEntry({ kind: 'idea', body: body.trim(), highlights })
-    setBody(''); setHighlights([]); load()
+    await api.createEntry({ kind: 'idea', body: body.trim() })
+    setBody(''); load()
   }
   async function del(e) {
     await api.deleteEntry(e.id)
@@ -41,6 +40,7 @@ export default function Ideas() {
   function saved(up) {
     setIdeas((xs) => xs.map((x) => (x.id === up.id ? up : x)))
     setEditId(null)
+    setMarkId(null)
   }
 
   return (
@@ -49,9 +49,8 @@ export default function Ideas() {
       <div className="capture-hint">看到什么、想到什么,写下来。AI 自动归类,你随时改。</div>
 
       <div className="log-compose">
-        <textarea ref={bodyRef} className="capture-input" value={body} rows={3}
+        <textarea className="capture-input" value={body} rows={3}
           onChange={(e) => setBody(e.target.value)} placeholder="此刻的想法…" />
-        <HighlightControls textareaRef={bodyRef} highlights={highlights} onChange={setHighlights} />
         <div className="mood-row"><button className="log-save" onClick={add} disabled={!body.trim()}>记下</button></div>
       </div>
 
@@ -65,6 +64,8 @@ export default function Ideas() {
             <div key={e.id} className="entry-card">
               {editId === e.id ? (
                 <EntryEditor entry={e} onCancel={() => setEditId(null)} onSaved={saved} />
+              ) : markId === e.id ? (
+                <EntryHighlighter entry={e} onCancel={() => setMarkId(null)} onSaved={saved} />
               ) : (
                 <>
                   <div className="entry-time">{fmtTime(e.created_at)}</div>
@@ -75,7 +76,8 @@ export default function Ideas() {
                     </button>
                   )}
                   <ClassificationMeta entry={e} actions={<>
-                    <button onClick={() => setEditId(e.id)}>编辑</button>
+                    <button onClick={() => { setMarkId(e.id); setEditId(null) }}>标重点</button>
+                    <button onClick={() => { setEditId(e.id); setMarkId(null) }}>编辑</button>
                     <button className="mini-danger" onClick={() => del(e)}>删除</button>
                   </>} />
                 </>

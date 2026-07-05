@@ -372,7 +372,21 @@ async def to_note(item_id: int):
     return NoteResult(note_id=note_id)
 
 
-def _reading_queue(where: str, limit: int, order: str) -> ItemList:
+def _review_filter_sql(entry_type: str | None, domain: str | None, use_tag: str | None):
+    clauses: list[str] = []
+    params: list[str] = []
+    for column, value in (("i.entry_type", entry_type), ("i.domain", domain), ("i.use_tag", use_tag)):
+        if value:
+            clauses.append(f"{column}=%s")
+            params.append(value)
+    return clauses, params
+
+
+def _reading_queue(where: str, limit: int, order: str,
+                   entry_type: str | None = None, domain: str | None = None,
+                   use_tag: str | None = None) -> ItemList:
+    filters, params = _review_filter_sql(entry_type, domain, use_tag)
+    extra = "".join(f" AND {clause}" for clause in filters)
     with get_conn() as conn:
         rows = conn.execute(
             f"""SELECT i.id, i.file_id, f.checksum, i.status, i.title, i.summary,
@@ -380,18 +394,44 @@ def _reading_queue(where: str, limit: int, order: str) -> ItemList:
                        i.topics, i.highlights, i.ai_classify_status,
                        i.reviewed_at, i.promoted_at, i.created_at
                 FROM image.items i JOIN image.files f ON f.id=i.file_id
-                WHERE i.deleted_at IS NULL AND i.status='ok' AND {where}
+                WHERE i.deleted_at IS NULL AND i.status='ok' AND {where}{extra}
                 ORDER BY {order} LIMIT %s""",
-            (limit,),
+            [*params, limit],
         ).fetchall()
     return ItemList(total=len(rows), limit=limit, offset=0,
                     items=[ItemBrief(**r) for r in rows])
 
 
 @router.get("/review-queue", response_model=ItemList)
-async def review_queue(limit: int = Query(default=10, ge=1, le=20)):
+async def review_queue(
+    limit: int = Query(default=10, ge=1, le=20),
+    entry_type: str | None = Query(default=None),
+    domain: str | None = Query(default=None),
+    use_tag: str | None = Query(default=None),
+):
     """集中批阅:只取尚未人工看过的内容,每组默认 10 条。"""
-    return _reading_queue("i.reviewed_at IS NULL", limit, "i.created_at ASC")
+    return _reading_queue("i.reviewed_at IS NULL", limit, "i.created_at ASC",
+                          entry_type, domain, use_tag)
+
+
+@router.get("/review-facets")
+async def review_facets():
+    """集中批阅的未阅内容构成，供分类入口显示数量。"""
+    with get_conn() as conn:
+        total = conn.execute(
+            """SELECT count(*) AS c FROM image.items i
+               WHERE i.deleted_at IS NULL AND i.status='ok' AND i.reviewed_at IS NULL"""
+        ).fetchone()["c"]
+        result = {}
+        for key, column in (("entry_types", "entry_type"), ("domains", "domain"), ("uses", "use_tag")):
+            rows = conn.execute(
+                f"""SELECT i.{column} AS value, count(*) AS c FROM image.items i
+                    WHERE i.deleted_at IS NULL AND i.status='ok' AND i.reviewed_at IS NULL
+                      AND i.{column} IS NOT NULL
+                    GROUP BY i.{column}"""
+            ).fetchall()
+            result[key] = {row["value"]: row["c"] for row in rows}
+    return {"total": total, **result}
 
 
 @router.get("/recommendations", response_model=ItemList)

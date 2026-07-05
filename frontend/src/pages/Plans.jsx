@@ -5,6 +5,7 @@ import Icon from '../components/Icon'
 import ClassificationMeta from '../components/ClassificationMeta'
 import EntryEditor from '../components/EntryEditor'
 import HighlightText from '../components/HighlightText'
+import EntryHighlighter from '../components/EntryHighlighter'
 
 // 计划:长期北极星,常驻不沉底。最简清单(先用起来,层次以后再长)。
 export default function Plans() {
@@ -12,6 +13,7 @@ export default function Plans() {
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [editId, setEditId] = useState(null)
+  const [markId, setMarkId] = useState(null)
 
   function load() {
     setLoading(true)
@@ -26,6 +28,7 @@ export default function Plans() {
   function saved(up) {
     setPlans((xs) => xs.map((x) => (x.id === up.id ? up : x)))
     setEditId(null)
+    setMarkId(null)
   }
 
   return (
@@ -45,12 +48,13 @@ export default function Plans() {
         <div className="plans">
           {plans.map((p) => (
             <div key={p.id} className="plan-card">
-              {editId === p.id ? <EntryEditor entry={p} onCancel={() => setEditId(null)} onSaved={saved} /> : <>
+              {editId === p.id ? <EntryEditor entry={p} onCancel={() => setEditId(null)} onSaved={saved} /> : markId === p.id ? <EntryHighlighter entry={p} onCancel={() => setMarkId(null)} onSaved={saved} /> : <>
                 <Icon name="flag" size={18} className="plan-pin" />
                 <div className="plan-content">
                   <HighlightText text={p.body} highlights={p.highlights} className="plan-body" />
                   <ClassificationMeta entry={p} actions={<>
-                    <button onClick={() => setEditId(p.id)}>编辑</button>
+                    <button onClick={() => { setMarkId(p.id); setEditId(null) }}>标重点</button>
+                    <button onClick={() => { setEditId(p.id); setMarkId(null) }}>编辑</button>
                     <button className="mini-danger" onClick={() => del(p)}>删除</button>
                   </>} />
                 </div>
