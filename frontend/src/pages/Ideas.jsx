@@ -5,16 +5,12 @@ import Img from '../components/Img'
 import ClassificationMeta from '../components/ClassificationMeta'
 import ClassificationGuide from '../components/ClassificationGuide'
 
-// 想法流:看图产生的 + 凭空的。可编辑、打主题、精选入脑。你的"思维镜子"。
-const THEMES = ['trading', 'ai', 'adhd', 'language', 'life', 'other']
-const LABEL = { trading: '交易', ai: 'AI', adhd: 'ADHD', language: '语言', life: '生活', other: '其他' }
-
+// 想法流:看图产生的 + 凭空的。AI 自动分类(类型/领域/用途/标签),可编辑、精选入脑。
 export default function Ideas() {
   const nav = useNavigate()
   const [ideas, setIdeas] = useState([])
   const [body, setBody] = useState('')
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('')
   const [editId, setEditId] = useState(null)
   const [editBody, setEditBody] = useState('')
 
@@ -39,22 +35,15 @@ export default function Ideas() {
     setIdeas((xs) => xs.map((x) => (x.id === e.id ? { ...x, body: up.body } : x)))
     setEditId(null)
   }
-  async function setTheme(e, theme) {
-    const t = e.theme === theme ? null : theme
-    await api.updateEntry(e.id, { theme: t })
-    setIdeas((xs) => xs.map((x) => (x.id === e.id ? { ...x, theme: t } : x)))
-  }
   async function promote(e) {
     await api.promoteIdea(e.id)
     setIdeas((xs) => xs.map((x) => (x.id === e.id ? { ...x, promoted_at: new Date().toISOString() } : x)))
   }
 
-  const shown = filter ? ideas.filter((e) => e.theme === filter) : ideas
-
   return (
     <div className="page">
       <h1 className="page-title">想法</h1>
-      <div className="capture-hint">看到什么、想到什么,写下来。它们攒起来就是你怎么思考的镜子。</div>
+      <div className="capture-hint">看到什么、想到什么,写下来。AI 自动归类,你随时改。</div>
       <ClassificationGuide />
 
       <div className="log-compose">
@@ -63,22 +52,13 @@ export default function Ideas() {
         <div className="mood-row"><button className="log-save" onClick={add} disabled={!body.trim()}>记下</button></div>
       </div>
 
-      {ideas.some((e) => e.theme) && (
-        <div className="chips">
-          <button className={`chip ${!filter ? 'chip-on' : ''}`} onClick={() => setFilter('')}>全部</button>
-          {THEMES.filter((t) => ideas.some((e) => e.theme === t)).map((t) => (
-            <button key={t} className={`chip ${filter === t ? 'chip-on' : ''}`} onClick={() => setFilter(t)}>{LABEL[t]}</button>
-          ))}
-        </div>
-      )}
-
       {loading ? (
         <div className="empty-hint">加载中…</div>
-      ) : shown.length === 0 ? (
+      ) : ideas.length === 0 ? (
         <div className="empty-hint">还没有想法 · 翻到一张图有感觉时,在详情页写一条</div>
       ) : (
         <div className="card-list">
-          {shown.map((e) => (
+          {ideas.map((e) => (
             <div key={e.id} className="entry-card">
               {editId === e.id ? (
                 <>
@@ -93,12 +73,6 @@ export default function Ideas() {
                 <>
                   <div className="entry-body">{e.body}</div>
                   <ClassificationMeta entry={e} />
-                  <div className="idea-themes">
-                    {THEMES.map((t) => (
-                      <button key={t} className={`chip chip-sm ${e.theme === t ? 'chip-on' : ''}`}
-                        onClick={() => setTheme(e, t)}>{LABEL[t]}</button>
-                    ))}
-                  </div>
                   <div className="idea-foot">
                     {e.checksum && (
                       <div className="idea-src" onClick={() => nav(`/item/${e.source_item_id}`)}>

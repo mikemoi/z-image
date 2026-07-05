@@ -10,6 +10,7 @@ import Capture from './pages/Capture'
 import Logs from './pages/Logs'
 import Ideas from './pages/Ideas'
 import Me from './pages/Me'
+import Settings from './pages/Settings'
 import Plans from './pages/Plans'
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="/logs" element={<Logs />} />
             <Route path="/ideas" element={<Ideas />} />
             <Route path="/me" element={<Me />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/plans" element={<Plans />} />
           </Routes>
         </main>
