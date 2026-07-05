@@ -74,6 +74,14 @@ CREATE TABLE IF NOT EXISTS core.entries (
     source_item_id BIGINT,                          -- 想法来自哪张截图(可空)
     theme      TEXT,                                -- 想法可打主题
     promoted_at TIMESTAMPTZ,                        -- 想法已精选入脑
+    entry_type TEXT,                                -- 内容类型,不同于入口 kind
+    domain     TEXT,                                -- 领域:身心/生活/能力/财务/方向
+    use_tag    TEXT,                                -- 用途
+    source     TEXT,                                -- 来源:自己/截图/文件
+    topics     JSONB,                               -- 自由标签数组
+    ai_classify_status TEXT DEFAULT 'pending',
+    ai_classified_at TIMESTAMPTZ,
+    ai_classify_output JSONB,
     deleted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

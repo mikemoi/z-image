@@ -6,6 +6,7 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from psycopg.types.json import Jsonb
 
 from auth import require_token
 from db import get_conn
@@ -48,13 +49,20 @@ async def create_entry(payload: EntryCreate):
     if kind == "log" and logged_for is None:
         logged_for = date.today()
     pinned = payload.pinned or (kind == "plan")
+    source = "截图" if payload.source_item_id is not None else "自己"
     with get_conn() as conn:
         row = conn.execute(
-            """INSERT INTO core.entries (kind, body, status, mood, pinned, logged_for, source_item_id)
-               VALUES (%s, %s, 'filed', %s, %s, %s, %s)
+            """INSERT INTO core.entries
+                      (kind, body, status, mood, pinned, logged_for, source_item_id,
+                       entry_type, domain, use_tag, source, topics)
+               VALUES (%s, %s, 'filed', %s, %s, %s, %s, %s, %s, %s, %s, %s)
                RETURNING id, kind, body, status, mood, pinned, logged_for, source_item_id,
+                         theme, promoted_at, entry_type, domain, use_tag, source, topics,
+                         ai_classify_status, ai_classified_at, ai_classify_output,
                          created_at, updated_at""",
-            (kind, body, payload.mood, pinned, logged_for, payload.source_item_id),
+            (kind, body, payload.mood, pinned, logged_for, payload.source_item_id,
+             payload.entry_type, payload.domain, payload.use_tag, source,
+             Jsonb(payload.topics) if payload.topics is not None else None),
         ).fetchone()
         conn.commit()
     return Entry(**row)
@@ -66,7 +74,10 @@ async def ideas():
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT e.id, e.kind, e.body, e.status, e.mood, e.pinned, e.logged_for,
-                      e.source_item_id, e.theme, e.promoted_at, f.checksum,
+                      e.source_item_id, e.theme, e.promoted_at,
+                      e.entry_type, e.domain, e.use_tag, e.source, e.topics,
+                      e.ai_classify_status, e.ai_classified_at, e.ai_classify_output,
+                      f.checksum,
                       e.created_at, e.updated_at
                FROM core.entries e
                LEFT JOIN image.items i ON i.id = e.source_item_id
@@ -130,7 +141,10 @@ async def list_entries(
         where.append("status = %s"); params.append(status)
     with get_conn() as conn:
         rows = conn.execute(
-            f"""SELECT id, kind, body, status, mood, pinned, logged_for, created_at, updated_at
+            f"""SELECT id, kind, body, status, mood, pinned, logged_for, source_item_id,
+                       theme, promoted_at, entry_type, domain, use_tag, source, topics,
+                       ai_classify_status, ai_classified_at, ai_classify_output,
+                       created_at, updated_at
                 FROM core.entries WHERE {" AND ".join(where)}
                 ORDER BY created_at DESC LIMIT %s OFFSET %s""",
             params + [limit, offset],
@@ -143,7 +157,10 @@ async def inbox():
     """待整理:速记/剪藏里还没归位的。消化节奏,无计数、无催促。"""
     with get_conn() as conn:
         rows = conn.execute(
-            """SELECT id, kind, body, status, mood, pinned, logged_for, created_at, updated_at
+            """SELECT id, kind, body, status, mood, pinned, logged_for, source_item_id,
+                      theme, promoted_at, entry_type, domain, use_tag, source, topics,
+                      ai_classify_status, ai_classified_at, ai_classify_output,
+                      created_at, updated_at
                FROM core.entries
                WHERE deleted_at IS NULL AND status = 'inbox'
                ORDER BY created_at DESC""",
@@ -156,7 +173,10 @@ async def plans():
     """钉住的计划(五年/十年计划等),常驻不沉底。"""
     with get_conn() as conn:
         rows = conn.execute(
-            """SELECT id, kind, body, status, mood, pinned, logged_for, created_at, updated_at
+            """SELECT id, kind, body, status, mood, pinned, logged_for, source_item_id,
+                      theme, promoted_at, entry_type, domain, use_tag, source, topics,
+                      ai_classify_status, ai_classified_at, ai_classify_output,
+                      created_at, updated_at
                FROM core.entries
                WHERE deleted_at IS NULL AND kind = 'plan' AND pinned = true
                ORDER BY created_at DESC""",
@@ -169,7 +189,10 @@ async def logs(limit: int = Query(default=200, le=500), offset: int = Query(defa
     """日志时间线:按事情发生的日期倒序。"""
     with get_conn() as conn:
         rows = conn.execute(
-            """SELECT id, kind, body, status, mood, pinned, logged_for, created_at, updated_at
+            """SELECT id, kind, body, status, mood, pinned, logged_for, source_item_id,
+                      theme, promoted_at, entry_type, domain, use_tag, source, topics,
+                      ai_classify_status, ai_classified_at, ai_classify_output,
+                      created_at, updated_at
                FROM core.entries
                WHERE deleted_at IS NULL AND kind = 'log'
                ORDER BY logged_for DESC NULLS LAST, created_at DESC
@@ -185,7 +208,10 @@ async def on_this_day():
     today = date.today()
     with get_conn() as conn:
         rows = conn.execute(
-            """SELECT id, kind, body, status, mood, pinned, logged_for, created_at, updated_at
+            """SELECT id, kind, body, status, mood, pinned, logged_for, source_item_id,
+                      theme, promoted_at, entry_type, domain, use_tag, source, topics,
+                      ai_classify_status, ai_classified_at, ai_classify_output,
+                      created_at, updated_at
                FROM core.entries
                WHERE deleted_at IS NULL AND kind = 'log' AND logged_for IS NOT NULL
                  AND EXTRACT(MONTH FROM logged_for) = %s
@@ -202,13 +228,17 @@ async def update_entry(entry_id: int, patch: EntryUpdate):
     fields = {k: v for k, v in patch.model_dump(exclude_unset=True).items()}
     if not fields:
         raise HTTPException(400, "no fields to update")
+    if "topics" in fields and fields["topics"] is not None:
+        fields["topics"] = Jsonb(fields["topics"])
     sets = ", ".join(f"{k} = %s" for k in fields)
     with get_conn() as conn:
         row = conn.execute(
             f"""UPDATE core.entries SET {sets}, updated_at = now()
                 WHERE id = %s AND deleted_at IS NULL
                 RETURNING id, kind, body, status, mood, pinned, logged_for,
-                          source_item_id, theme, promoted_at, created_at, updated_at""",
+                          source_item_id, theme, promoted_at, entry_type, domain, use_tag,
+                          source, topics, ai_classify_status, ai_classified_at,
+                          ai_classify_output, created_at, updated_at""",
             list(fields.values()) + [entry_id],
         ).fetchone()
         conn.commit()

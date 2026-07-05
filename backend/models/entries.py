@@ -1,8 +1,13 @@
 """文字入口(core.entries)的请求/响应模型。速记/日志/计划/剪藏共用一张表,kind 区分。"""
 from datetime import date, datetime
-from pydantic import BaseModel
+from typing import Literal
+from pydantic import BaseModel, Field
 
 KINDS = {"idea", "log", "plan"}        # 想法 / 日志 / 计划(去掉速记、剪藏并入想法)
+EntryType = Literal["想法", "句子", "规则", "决策", "知识", "资料", "记录"]
+Domain = Literal["身心", "生活", "能力", "财务", "方向"]
+UseTag = Literal["方法", "避坑", "心态", "工具", "灵感", "存档", "决策", "参考"]
+Source = Literal["自己", "截图", "文件"]
 
 
 class EntryCreate(BaseModel):
@@ -12,6 +17,10 @@ class EntryCreate(BaseModel):
     logged_for: date | None = None     # 日志:事情发生的日期,缺省=今天
     pinned: bool = False               # 计划钉住
     source_item_id: int | None = None  # 想法来自哪张截图(可空=凭空记的)
+    entry_type: EntryType | None = None
+    domain: Domain | None = None
+    use_tag: UseTag | None = None
+    topics: list[str] | None = Field(default=None, max_length=50)
 
 
 class EntryUpdate(BaseModel):
@@ -21,6 +30,10 @@ class EntryUpdate(BaseModel):
     status: str | None = None
     logged_for: date | None = None
     theme: str | None = None
+    entry_type: EntryType | None = None
+    domain: Domain | None = None
+    use_tag: UseTag | None = None
+    topics: list[str] | None = Field(default=None, max_length=50)
 
 
 class Entry(BaseModel):
@@ -34,6 +47,14 @@ class Entry(BaseModel):
     source_item_id: int | None = None
     theme: str | None = None
     promoted_at: datetime | None = None
+    entry_type: EntryType | None = None
+    domain: Domain | None = None
+    use_tag: UseTag | None = None
+    source: Source | None = None
+    topics: list[str] | None = None
+    ai_classify_status: str | None = None
+    ai_classified_at: datetime | None = None
+    ai_classify_output: dict | None = None
     checksum: str | None = None        # 想法来源截图缩略(ideas 列表用)
     created_at: datetime
     updated_at: datetime

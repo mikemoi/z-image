@@ -50,6 +50,15 @@ def ensure_schema():
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS source_item_id BIGINT")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS theme TEXT")          # 想法可打主题
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS promoted_at TIMESTAMPTZ")  # 想法已精选入脑
+        # 统一分类体系。保留 kind/theme 等旧字段,新字段先用于 entries 并为后续 AI 分类预留状态。
+        conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS entry_type TEXT")
+        conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS domain TEXT")
+        conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS use_tag TEXT")
+        conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS source TEXT")
+        conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS topics JSONB")
+        conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS ai_classify_status TEXT DEFAULT 'pending'")
+        conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS ai_classified_at TIMESTAMPTZ")
+        conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS ai_classify_output JSONB")
         # v0.3 设置:通用 kv(现用于 OCR/问问AI 模型切换,以后阈值/主题等也可放这)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS core.settings (

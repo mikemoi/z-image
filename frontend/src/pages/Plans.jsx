@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import Icon from '../components/Icon'
+import ClassificationMeta from '../components/ClassificationMeta'
 
 // 计划:长期北极星,常驻不沉底。最简清单(先用起来,层次以后再长)。
 export default function Plans() {
@@ -38,7 +39,10 @@ export default function Plans() {
           {plans.map((p) => (
             <div key={p.id} className="plan-card">
               <Icon name="flag" size={18} className="plan-pin" />
-              <span className="plan-body">{p.body}</span>
+              <div className="plan-content">
+                <div className="plan-body">{p.body}</div>
+                <ClassificationMeta entry={p} />
+              </div>
               <button className="log-del" onClick={() => del(p)}>删</button>
             </div>
           ))}

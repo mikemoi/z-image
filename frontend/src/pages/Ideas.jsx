@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import Img from '../components/Img'
+import ClassificationMeta from '../components/ClassificationMeta'
+import ClassificationGuide from '../components/ClassificationGuide'
 
 // 想法流:看图产生的 + 凭空的。可编辑、打主题、精选入脑。你的"思维镜子"。
 const THEMES = ['trading', 'ai', 'adhd', 'language', 'life', 'other']
@@ -53,6 +55,7 @@ export default function Ideas() {
     <div className="page">
       <h1 className="page-title">想法</h1>
       <div className="capture-hint">看到什么、想到什么,写下来。它们攒起来就是你怎么思考的镜子。</div>
+      <ClassificationGuide />
 
       <div className="log-compose">
         <textarea className="capture-input" value={body} rows={3}
@@ -89,6 +92,7 @@ export default function Ideas() {
               ) : (
                 <>
                   <div className="entry-body">{e.body}</div>
+                  <ClassificationMeta entry={e} />
                   <div className="idea-themes">
                     {THEMES.map((t) => (
                       <button key={t} className={`chip chip-sm ${e.theme === t ? 'chip-on' : ''}`}
