@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS core.entries (
     use_tag    TEXT,                                -- 用途
     source     TEXT,                                -- 来源:自己/截图/文件
     topics     JSONB,                               -- 自由标签数组
+    highlights JSONB,                               -- 重点原句数组(AI初稿+人工最终结果)
     ai_classify_status TEXT DEFAULT 'pending',
     ai_classified_at TIMESTAMPTZ,
     ai_classify_output JSONB,
@@ -126,6 +127,7 @@ CREATE TABLE IF NOT EXISTS image.items (
     entry_type      TEXT,                   -- 统一 5 维:类型
     domain          TEXT,                   -- 统一 5 维:领域
     topics          JSONB,                  -- 统一 5 维:标签
+    highlights      JSONB,                  -- 重点原句数组
     ai_classify_status TEXT,                -- 自动分类状态(NULL/pending/done/failed)
     ai_classified_at   TIMESTAMPTZ,
     reviewed_at     TIMESTAMPTZ,

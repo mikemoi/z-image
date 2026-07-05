@@ -176,11 +176,13 @@ async def classify_entry(entry_id: int, body: str) -> bool:
                        domain     = COALESCE(domain, %s),
                        use_tag    = COALESCE(use_tag, %s),
                        topics     = COALESCE(topics, %s),
+                       highlights = COALESCE(highlights, %s),
                        ai_classify_status = 'done', ai_classified_at = now(),
                        ai_classify_output = %s, updated_at = now()
                    WHERE id = %s""",
                 (r["entry_type"], r["domain"], r["use_tag"],
                  Jsonb(r["topics"]) if r["topics"] else None,
+                 Jsonb(r["highlights"]) if r["highlights"] else None,
                  Jsonb(r), entry_id),
             )
             conn.commit()
@@ -237,10 +239,12 @@ async def classify_item(item_id: int, text: str) -> bool:
                    SET entry_type = COALESCE(entry_type, %s),
                        domain     = COALESCE(domain, %s),
                        topics     = COALESCE(topics, %s),
+                       highlights = COALESCE(highlights, %s),
                        ai_classify_status='done', ai_classified_at=now(), updated_at=now()
                    WHERE id=%s""",
                 (r["entry_type"], r["domain"],
-                 Jsonb(r["topics"]) if r["topics"] else None, item_id),
+                 Jsonb(r["topics"]) if r["topics"] else None,
+                 Jsonb(r["highlights"]) if r["highlights"] else None, item_id),
             )
             conn.commit()
         return True

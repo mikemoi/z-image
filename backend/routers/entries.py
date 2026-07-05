@@ -54,15 +54,16 @@ async def create_entry(payload: EntryCreate):
         row = conn.execute(
             """INSERT INTO core.entries
                       (kind, body, status, mood, pinned, logged_for, source_item_id,
-                       entry_type, domain, use_tag, source, topics)
-               VALUES (%s, %s, 'filed', %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                       entry_type, domain, use_tag, source, topics, highlights)
+               VALUES (%s, %s, 'filed', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                RETURNING id, kind, body, status, mood, pinned, logged_for, source_item_id,
-                         theme, promoted_at, entry_type, domain, use_tag, source, topics,
+                         theme, promoted_at, entry_type, domain, use_tag, source, topics, highlights,
                          ai_classify_status, ai_classified_at, ai_classify_output,
                          created_at, updated_at""",
             (kind, body, payload.mood, pinned, logged_for, payload.source_item_id,
              payload.entry_type, payload.domain, payload.use_tag, source,
-             Jsonb(payload.topics) if payload.topics is not None else None),
+             Jsonb(payload.topics) if payload.topics is not None else None,
+             Jsonb(payload.highlights) if payload.highlights is not None else None),
         ).fetchone()
         conn.commit()
     return Entry(**row)
@@ -75,7 +76,7 @@ async def ideas():
         rows = conn.execute(
             """SELECT e.id, e.kind, e.body, e.status, e.mood, e.pinned, e.logged_for,
                       e.source_item_id, e.theme, e.promoted_at,
-                      e.entry_type, e.domain, e.use_tag, e.source, e.topics,
+                      e.entry_type, e.domain, e.use_tag, e.source, e.topics, e.highlights,
                       e.ai_classify_status, e.ai_classified_at, e.ai_classify_output,
                       f.checksum,
                       e.created_at, e.updated_at
@@ -159,7 +160,7 @@ async def list_entries(
     with get_conn() as conn:
         rows = conn.execute(
             f"""SELECT id, kind, body, status, mood, pinned, logged_for, source_item_id,
-                       theme, promoted_at, entry_type, domain, use_tag, source, topics,
+                       theme, promoted_at, entry_type, domain, use_tag, source, topics, highlights,
                        ai_classify_status, ai_classified_at, ai_classify_output,
                        created_at, updated_at
                 FROM core.entries WHERE {" AND ".join(where)}
@@ -175,7 +176,7 @@ async def inbox():
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT id, kind, body, status, mood, pinned, logged_for, source_item_id,
-                      theme, promoted_at, entry_type, domain, use_tag, source, topics,
+                      theme, promoted_at, entry_type, domain, use_tag, source, topics, highlights,
                       ai_classify_status, ai_classified_at, ai_classify_output,
                       created_at, updated_at
                FROM core.entries
@@ -191,7 +192,7 @@ async def plans():
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT id, kind, body, status, mood, pinned, logged_for, source_item_id,
-                      theme, promoted_at, entry_type, domain, use_tag, source, topics,
+                      theme, promoted_at, entry_type, domain, use_tag, source, topics, highlights,
                       ai_classify_status, ai_classified_at, ai_classify_output,
                       created_at, updated_at
                FROM core.entries
@@ -207,7 +208,7 @@ async def logs(limit: int = Query(default=200, le=500), offset: int = Query(defa
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT id, kind, body, status, mood, pinned, logged_for, source_item_id,
-                      theme, promoted_at, entry_type, domain, use_tag, source, topics,
+                      theme, promoted_at, entry_type, domain, use_tag, source, topics, highlights,
                       ai_classify_status, ai_classified_at, ai_classify_output,
                       created_at, updated_at
                FROM core.entries
@@ -226,7 +227,7 @@ async def on_this_day():
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT id, kind, body, status, mood, pinned, logged_for, source_item_id,
-                      theme, promoted_at, entry_type, domain, use_tag, source, topics,
+                      theme, promoted_at, entry_type, domain, use_tag, source, topics, highlights,
                       ai_classify_status, ai_classified_at, ai_classify_output,
                       created_at, updated_at
                FROM core.entries
@@ -247,6 +248,8 @@ async def update_entry(entry_id: int, patch: EntryUpdate):
         raise HTTPException(400, "no fields to update")
     if "topics" in fields and fields["topics"] is not None:
         fields["topics"] = Jsonb(fields["topics"])
+    if "highlights" in fields and fields["highlights"] is not None:
+        fields["highlights"] = Jsonb(fields["highlights"])
     # 人工改了任一分类维度 → 标 done,自动分类 worker 不再覆盖(人工修正优先)
     if fields.keys() & {"entry_type", "domain", "use_tag", "topics"}:
         fields.setdefault("ai_classify_status", "done")
@@ -257,7 +260,7 @@ async def update_entry(entry_id: int, patch: EntryUpdate):
                 WHERE id = %s AND deleted_at IS NULL
                 RETURNING id, kind, body, status, mood, pinned, logged_for,
                           source_item_id, theme, promoted_at, entry_type, domain, use_tag,
-                          source, topics, ai_classify_status, ai_classified_at,
+                          source, topics, highlights, ai_classify_status, ai_classified_at,
                           ai_classify_output, created_at, updated_at""",
             list(fields.values()) + [entry_id],
         ).fetchone()
@@ -310,12 +313,39 @@ async def file_entry(entry_id: int, body: FileEntry):
 
 @router.delete("/{entry_id}", response_model=OkResult)
 async def delete_entry(entry_id: int):
-    """永久删除(无回收站):点了就删,确定不要了才删。"""
+    """普通删除:移入回收站。"""
     with get_conn() as conn:
         r = conn.execute(
-            "DELETE FROM core.entries WHERE id = %s RETURNING id", (entry_id,)
+            """UPDATE core.entries SET deleted_at=now(), updated_at=now()
+               WHERE id=%s AND deleted_at IS NULL RETURNING id""", (entry_id,)
         ).fetchone()
         conn.commit()
     if not r:
         raise HTTPException(404, "entry not found")
+    return OkResult()
+
+
+@router.post("/{entry_id}/restore", response_model=OkResult)
+async def restore_entry(entry_id: int):
+    with get_conn() as conn:
+        r = conn.execute(
+            """UPDATE core.entries SET deleted_at=NULL, updated_at=now()
+               WHERE id=%s AND deleted_at IS NOT NULL RETURNING id""", (entry_id,)
+        ).fetchone()
+        conn.commit()
+    if not r:
+        raise HTTPException(404, "entry not found in trash")
+    return OkResult()
+
+
+@router.delete("/{entry_id}/purge", response_model=OkResult)
+async def purge_entry(entry_id: int):
+    with get_conn() as conn:
+        r = conn.execute(
+            "DELETE FROM core.entries WHERE id=%s AND deleted_at IS NOT NULL RETURNING id",
+            (entry_id,),
+        ).fetchone()
+        conn.commit()
+    if not r:
+        raise HTTPException(404, "entry not found in trash")
     return OkResult()

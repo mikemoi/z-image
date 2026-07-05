@@ -100,7 +100,7 @@ docker-compose.yml  db(postgres:17)+ backend
 | 管线 | 函数 | 模型设置 | 触发 | 产出 |
 |---|---|---|---|---|
 | **消化/OCR** | `vision.call_vision` | `ocr_model` | 上传后 worker `_loop` 自动 | title/theme/use_tag/granularity/summary/quality/suggested_theme + OCR |
-| **自动分类** | `classify.call_classify` | `classify_model` | worker `_classify_loop` 自动(entries + items) | entry_type/domain/topics(截图不覆盖 vision 的 use_tag/theme) |
+| **自动分类** | `classify.call_classify` | `classify_model` | worker `_classify_loop` 自动(entries + items) | entry_type/domain/topics/highlights(截图不覆盖 vision 的 use_tag/theme) |
 | **问问AI** | `vision.call_insight` | `insight_model` | 详情页按需点击 | explanation/quality/quality_note/suggested_theme(缓存 `ai_insight`) |
 
 **worker.py 两个循环并行**:`_loop`(Vision 处理 review 的 items)、`_classify_loop`(分类 pending 的 entries + ok 未分类的 items)。都受 `_take_budget()`,`VISION_DAILY_BUDGET<=0` 视为不限。Vision 按 `_attempts` 自动重试；统一分类失败置 `failed`，不会自动再捞，需 reclassify。
@@ -110,8 +110,8 @@ docker-compose.yml  db(postgres:17)+ backend
 
 ## 5. 前端要点
 
-- **导航 5 tab**:首页 / 上传 / 想法 / 记录 / 我的。我的包含数据概览、AI 设置、长期计划和分类说明；个人项目不提供退出登录入口。
-- **详情页操作**:标签 / 精选 / 删除(**永久删,无回收站**,"不删即留下")+ 我的想法输入(存成 idea,挂 source_item_id)。
+- **导航 5 tab**:首页 / 上传 / 想法 / 记录 / 我的。我的包含集中批阅、数据概览、AI 设置、长期计划、回收站和分类说明；个人项目不提供退出登录入口。
+- **详情页操作**:标签 / 精选 / 标重点 / 删除到回收站 + 我的想法输入(存成 idea,挂 source_item_id)。
 - **想法/日志/长期计划**:普通卡片只读，`ClassificationMeta` 只展示 topics 与底部分类；统一 `EntryEditor` 修改正文和分类，并可让 AI 重新分类。想法页不再显示精选按钮，后端 promote 仅兼容旧能力。
 - **主题风格**:暖纸底 + 墨青主色 + 线性 SVG 图标(`components/Icon.jsx`),CSS 变量在 `styles.css :root`。
 - **鉴权**:`TokenGate` + token 存 localStorage,`api.js` 每请求带 `Authorization: Bearer`。
@@ -121,7 +121,7 @@ docker-compose.yml  db(postgres:17)+ backend
 ## 6. 当前状态 / 待办 / 已知问题
 
 ### 已完成(v0.3 主体)
-捕捉、消化、问问AI、搜索(截图+手写)、永久删除、模型三处分开配、文字入口(想法/日志/计划)、想法(编辑/打主题/精选)、**统一 5 维分类 + AI 自动分类(entries + items 都已接)**、暖纸墨青视觉 + 线性图标、AI 设置独立页。
+捕捉、消化、问问AI、搜索(截图+手写)、回收站/永久删除、今日推荐前后切换、集中批阅、原文重点标注、模型三处分开配、文字入口(想法/日志/计划)、**统一 5 维分类 + AI 自动分类(entries + items 都已接)**、暖纸墨青视觉 + 线性图标、AI 设置独立页。
 
 ### 待办(非向量,按优先级)
 1. **首页整理**:首页偏杂,尚未收拾(上下文原因暂停)。需先问用户"哪里最碍眼"再动。

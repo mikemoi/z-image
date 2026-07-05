@@ -21,6 +21,7 @@ class EntryCreate(BaseModel):
     domain: Domain | None = None
     use_tag: UseTag | None = None
     topics: list[str] | None = Field(default=None, max_length=50)
+    highlights: list[str] | None = Field(default=None, max_length=10)
 
 
 class EntryUpdate(BaseModel):
@@ -34,6 +35,7 @@ class EntryUpdate(BaseModel):
     domain: Domain | None = None
     use_tag: UseTag | None = None
     topics: list[str] | None = Field(default=None, max_length=50)
+    highlights: list[str] | None = Field(default=None, max_length=10)
 
 
 class Entry(BaseModel):
@@ -52,6 +54,7 @@ class Entry(BaseModel):
     use_tag: UseTag | None = None
     source: Source | None = None
     topics: list[str] | None = None
+    highlights: list[str] | None = None
     ai_classify_status: str | None = None
     ai_classified_at: datetime | None = None
     ai_classify_output: dict | None = None

@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import ClassificationMeta from '../components/ClassificationMeta'
 import EntryEditor from '../components/EntryEditor'
+import HighlightText from '../components/HighlightText'
+import HighlightControls from '../components/HighlightControls'
 
 // 日志:带日期的文字,按天翻。价值在回看——往年今天温柔冒出。绝不 streak、不催写。
 const MOODS = ['😞', '😕', '😐', '🙂', '😄']
@@ -23,6 +25,8 @@ export default function Logs() {
   const [logs, setLogs] = useState([])
   const [past, setPast] = useState([])
   const [body, setBody] = useState('')
+  const [highlights, setHighlights] = useState([])
+  const bodyRef = useRef(null)
   const [mood, setMood] = useState('')
   const [loading, setLoading] = useState(true)
   const [editId, setEditId] = useState(null)
@@ -36,10 +40,10 @@ export default function Logs() {
 
   async function quickLog() {
     if (!body.trim()) return
-    const payload = { kind: 'log', body: body.trim() }
+    const payload = { kind: 'log', body: body.trim(), highlights }
     if (mood) payload.mood = mood
     await api.createEntry(payload)
-    setBody(''); setMood('')
+    setBody(''); setMood(''); setHighlights([])
     load()
   }
   async function del(e) {
@@ -62,13 +66,14 @@ export default function Logs() {
 
       {/* 快速记一条 */}
       <div className="log-compose">
-        <textarea
+        <textarea ref={bodyRef}
           className="capture-input"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder="今天怎么样?"
           rows={3}
         />
+        <HighlightControls textareaRef={bodyRef} highlights={highlights} onChange={setHighlights} />
         <div className="mood-row">
           {MOODS.map((m) => (
             <button key={m} className={`mood ${mood === m ? 'mood-on' : ''}`} onClick={() => setMood(mood === m ? '' : m)}>{m}</button>
@@ -85,7 +90,7 @@ export default function Logs() {
             <div key={e.id} className="log-item log-past">
               {editId === e.id ? <EntryEditor entry={e} showDate showMood onCancel={() => setEditId(null)} onSaved={saved} /> : <>
                 <div className="log-date">{fmt(e.logged_for)} {ftime(e.created_at)} {e.mood || ''}</div>
-                <div className="entry-body">{e.body}</div>
+                <HighlightText text={e.body} highlights={e.highlights} className="entry-body" />
                 <ClassificationMeta entry={e} actions={<>
                   <button onClick={() => setEditId(e.id)}>编辑</button>
                   <button className="mini-danger" onClick={() => del(e)}>删除</button>
@@ -107,7 +112,7 @@ export default function Logs() {
             <div key={e.id} className="log-item">
               {editId === e.id ? <EntryEditor entry={e} showDate showMood onCancel={() => setEditId(null)} onSaved={saved} /> : <>
                 <div className="log-date">{fmt(e.logged_for)} {ftime(e.created_at)} {e.mood || ''}</div>
-                <div className="entry-body">{e.body}</div>
+                <HighlightText text={e.body} highlights={e.highlights} className="entry-body" />
                 <ClassificationMeta entry={e} actions={<>
                   <button onClick={() => setEditId(e.id)}>编辑</button>
                   <button className="mini-danger" onClick={() => del(e)}>删除</button>

@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import Img from '../components/Img'
 import ClassificationMeta from '../components/ClassificationMeta'
 import EntryEditor from '../components/EntryEditor'
+import HighlightText from '../components/HighlightText'
+import HighlightControls from '../components/HighlightControls'
 
 // 想法本身就是一等内容，不再要求二次“精选”。
 function fmtTime(ts) {
@@ -16,6 +18,8 @@ export default function Ideas() {
   const nav = useNavigate()
   const [ideas, setIdeas] = useState([])
   const [body, setBody] = useState('')
+  const [highlights, setHighlights] = useState([])
+  const bodyRef = useRef(null)
   const [loading, setLoading] = useState(true)
   const [editId, setEditId] = useState(null)
 
@@ -27,8 +31,8 @@ export default function Ideas() {
 
   async function add() {
     if (!body.trim()) return
-    await api.createEntry({ kind: 'idea', body: body.trim() })
-    setBody(''); load()
+    await api.createEntry({ kind: 'idea', body: body.trim(), highlights })
+    setBody(''); setHighlights([]); load()
   }
   async function del(e) {
     await api.deleteEntry(e.id)
@@ -45,8 +49,9 @@ export default function Ideas() {
       <div className="capture-hint">看到什么、想到什么,写下来。AI 自动归类,你随时改。</div>
 
       <div className="log-compose">
-        <textarea className="capture-input" value={body} rows={3}
+        <textarea ref={bodyRef} className="capture-input" value={body} rows={3}
           onChange={(e) => setBody(e.target.value)} placeholder="此刻的想法…" />
+        <HighlightControls textareaRef={bodyRef} highlights={highlights} onChange={setHighlights} />
         <div className="mood-row"><button className="log-save" onClick={add} disabled={!body.trim()}>记下</button></div>
       </div>
 
@@ -63,7 +68,7 @@ export default function Ideas() {
               ) : (
                 <>
                   <div className="entry-time">{fmtTime(e.created_at)}</div>
-                  <div className="entry-body">{e.body}</div>
+                  <HighlightText text={e.body} highlights={e.highlights} className="entry-body" />
                   {e.checksum && (
                     <button className="idea-src" onClick={() => nav(`/item/${e.source_item_id}`)}>
                       <Img checksum={e.checksum} className="idea-thumb" /><span>查看来源截图</span>

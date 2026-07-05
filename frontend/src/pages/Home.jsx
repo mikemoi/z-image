@@ -12,20 +12,13 @@ const FIXED_THEMES = ['trading', 'ai', 'adhd', 'language', 'life']
 export default function Home() {
   const nav = useNavigate()
   const [stats, setStats] = useState({ themes: {}, uses: {}, total: 0 })
-  const [notes, setNotes] = useState([])
-  const [recent, setRecent] = useState([])
+  const [today, setToday] = useState(null)
   const [q, setQ] = useState('')
   const [working, setWorking] = useState(false)
 
   useEffect(() => {
     api.dimensions().then(setStats).catch(() => {})
-    // 重新遇见:优先真碎片;还没有 notes 时用最近入库项占位
-    api.resurface(6).then((ns) => {
-      setNotes(ns)
-      if (ns.length === 0) {
-        api.listItems({ status: 'ok', limit: 6 }).then((r) => setRecent(r.items)).catch(() => {})
-      }
-    }).catch(() => {})
+    api.recommendations(1).then((r) => setToday(r.items[0] || null)).catch(() => {})
   }, [])
 
   // 处理进度:只看"在不在整理"这个状态,不显示"还剩几张"。整理中时刷新维度计数。
@@ -43,11 +36,6 @@ export default function Home() {
     const t = setInterval(tick, 4000)
     return () => { alive = false; clearInterval(t) }
   }, [])
-
-  async function delNote(id) {
-    await api.deleteNote(id)
-    setNotes((xs) => xs.filter((n) => n.id !== id))
-  }
 
   function search(e) {
     e.preventDefault()
@@ -94,31 +82,14 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 重新遇见:真碎片优先,无则占位最近入库 */}
+      {/* 今日推荐:点进单卡阅读器后可前后翻页 */}
       <section className="resurface">
-        <h2 className="section-h">重新遇见</h2>
-        {notes.length > 0 ? (
-          <div className="resurface-row">
-            {notes.map((n) => (
-              <div key={n.id} className="resurface-card note-card">
-                {n.checksum && <Img checksum={n.checksum} className="resurface-thumb" />}
-                <div className="resurface-note-body">{n.body}</div>
-                <button className="note-del" onClick={() => delNote(n.id)}>删除</button>
-              </div>
-            ))}
-          </div>
-        ) : recent.length === 0 ? (
-          <div className="empty-hint">还没有内容,去上传几张试试</div>
-        ) : (
-          <div className="resurface-row">
-            {recent.map((it) => (
-              <div key={it.id} className="resurface-card" onClick={() => nav(`/item/${it.id}`)}>
-                <Img checksum={it.checksum} className="resurface-thumb" />
-                <div className="resurface-cap">{it.title || it.summary || '未命名'}</div>
-              </div>
-            ))}
-          </div>
-        )}
+        <h2 className="section-h">今日推荐</h2>
+        {!today ? <div className="empty-hint">还没有内容</div> :
+          <button className="today-card" onClick={() => nav('/review?mode=today')}>
+            <Img checksum={today.checksum} className="resurface-thumb" />
+            <div><b>{today.title || '未命名'}</b>{today.summary && <span>{today.summary}</span>}</div>
+          </button>}
       </section>
 
       {/* 维度入口 */}

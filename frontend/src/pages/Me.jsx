@@ -10,6 +10,10 @@ export default function Me() {
     <div className="page">
       <h1 className="page-title">我的</h1>
 
+      <button className="review-entry" onClick={() => nav('/review?mode=batch')}>
+        <Icon name="book" size={24} /><span>集中批阅</span><span className="me-arrow">›</span>
+      </button>
+
       <div className="me-list">
         <button className="me-item" onClick={() => nav('/overview')}>
           <Icon name="chart" size={20} className="me-ico" /><span>数据概览</span><span className="me-arrow">›</span>
@@ -19,6 +23,9 @@ export default function Me() {
         </button>
         <button className="me-item" onClick={() => nav('/plans')}>
           <Icon name="flag" size={20} className="me-ico" /><span>长期计划</span><span className="me-arrow">›</span>
+        </button>
+        <button className="me-item" onClick={() => nav('/trash')}>
+          <Icon name="trash" size={20} className="me-ico" /><span>回收站</span><span className="me-arrow">›</span>
         </button>
       </div>
 

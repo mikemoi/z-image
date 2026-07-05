@@ -372,6 +372,34 @@ async def to_note(item_id: int):
     return NoteResult(note_id=note_id)
 
 
+def _reading_queue(where: str, limit: int, order: str) -> ItemList:
+    with get_conn() as conn:
+        rows = conn.execute(
+            f"""SELECT i.id, i.file_id, f.checksum, i.status, i.title, i.summary,
+                       i.theme, i.use_tag, i.granularity, i.entry_type, i.domain,
+                       i.topics, i.highlights, i.ai_classify_status,
+                       i.reviewed_at, i.promoted_at, i.created_at
+                FROM image.items i JOIN image.files f ON f.id=i.file_id
+                WHERE i.deleted_at IS NULL AND i.status='ok' AND {where}
+                ORDER BY {order} LIMIT %s""",
+            (limit,),
+        ).fetchall()
+    return ItemList(total=len(rows), limit=limit, offset=0,
+                    items=[ItemBrief(**r) for r in rows])
+
+
+@router.get("/review-queue", response_model=ItemList)
+async def review_queue(limit: int = Query(default=10, ge=1, le=20)):
+    """集中批阅:只取尚未人工看过的内容,每组默认 10 条。"""
+    return _reading_queue("i.reviewed_at IS NULL", limit, "i.created_at ASC")
+
+
+@router.get("/recommendations", response_model=ItemList)
+async def recommendations(limit: int = Query(default=10, ge=1, le=20)):
+    """今日推荐:优先最久没看/从未看过的内容。"""
+    return _reading_queue("true", limit, "i.reviewed_at ASC NULLS FIRST, i.created_at ASC")
+
+
 @router.get("", response_model=ItemList)
 async def list_items(
     status: str | None = Query(default=None),
@@ -399,7 +427,7 @@ async def list_items(
         rows = conn.execute(
             f"""SELECT i.id, i.file_id, f.checksum, i.status, i.title, i.summary,
                        i.theme, i.use_tag, i.granularity,
-                       i.entry_type, i.domain, i.topics, i.ai_classify_status,
+                       i.entry_type, i.domain, i.topics, i.highlights, i.ai_classify_status,
                        i.reviewed_at, i.promoted_at, i.created_at
                 FROM image.items i
                 JOIN image.files f ON f.id = i.file_id
@@ -422,7 +450,7 @@ async def get_item(item_id: int):
         row = conn.execute(
             """SELECT i.id, i.file_id, f.checksum, f.original_filename, i.status,
                       i.title, i.summary, i.theme, i.use_tag, i.granularity,
-                      i.entry_type, i.domain, i.topics, i.ai_classify_status,
+                      i.entry_type, i.domain, i.topics, i.highlights, i.ai_classify_status,
                       i.is_ocr_suitable, i.reviewed_at, i.promoted_at, i.created_at
                FROM image.items i
                JOIN image.files f ON f.id = i.file_id
@@ -446,7 +474,7 @@ async def get_item(item_id: int):
 
 
 _UPDATABLE = {"title", "theme", "use_tag", "status", "granularity",
-              "entry_type", "domain", "topics"}
+              "entry_type", "domain", "topics", "highlights"}
 
 
 @router.patch("/{item_id}", response_model=ItemDetail)
@@ -457,6 +485,8 @@ async def update_item(item_id: int, patch: ItemUpdate):
         raise HTTPException(400, "no updatable fields provided")
     if "topics" in fields:
         fields["topics"] = Jsonb(fields["topics"]) if fields["topics"] is not None else None
+    if "highlights" in fields:
+        fields["highlights"] = Jsonb(fields["highlights"]) if fields["highlights"] is not None else None
     if fields.keys() & {"entry_type", "domain", "topics"}:
         fields.setdefault("ai_classify_status", "done")
     sets = ", ".join(f"{k} = %s" for k in fields)
@@ -508,10 +538,10 @@ async def purge(item_id: int):
     """彻底销毁:删记录 + 抹磁盘原文件(仅当无其他 item 再引用该文件)。"""
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT file_id FROM image.items WHERE id = %s", (item_id,)
+            "SELECT file_id FROM image.items WHERE id = %s AND deleted_at IS NOT NULL", (item_id,)
         ).fetchone()
         if not row:
-            raise HTTPException(404, "item not found")
+            raise HTTPException(404, "item not found in trash")
         file_id = row["file_id"]
 
         conn.execute("DELETE FROM image.items WHERE id = %s", (item_id,))

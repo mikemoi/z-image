@@ -13,6 +13,8 @@ import Me from './pages/Me'
 import Settings from './pages/Settings'
 import Plans from './pages/Plans'
 import Overview from './pages/Overview'
+import Trash from './pages/Trash'
+import ReviewSession from './pages/ReviewSession'
 
 export default function App() {
   return (
@@ -32,6 +34,8 @@ export default function App() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/plans" element={<Plans />} />
             <Route path="/overview" element={<Overview />} />
+            <Route path="/trash" element={<Trash />} />
+            <Route path="/review" element={<ReviewSession />} />
           </Routes>
         </main>
         <TabBar />

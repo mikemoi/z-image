@@ -4,6 +4,7 @@ import { api } from '../api'
 import Icon from '../components/Icon'
 import ClassificationMeta from '../components/ClassificationMeta'
 import EntryEditor from '../components/EntryEditor'
+import HighlightText from '../components/HighlightText'
 
 // 计划:长期北极星,常驻不沉底。最简清单(先用起来,层次以后再长)。
 export default function Plans() {
@@ -47,7 +48,7 @@ export default function Plans() {
               {editId === p.id ? <EntryEditor entry={p} onCancel={() => setEditId(null)} onSaved={saved} /> : <>
                 <Icon name="flag" size={18} className="plan-pin" />
                 <div className="plan-content">
-                  <div className="plan-body">{p.body}</div>
+                  <HighlightText text={p.body} highlights={p.highlights} className="plan-body" />
                   <ClassificationMeta entry={p} actions={<>
                     <button onClick={() => setEditId(p.id)}>编辑</button>
                     <button className="mini-danger" onClick={() => del(p)}>删除</button>

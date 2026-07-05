@@ -33,6 +33,7 @@ def ensure_schema():
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS entry_type TEXT")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS domain TEXT")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS topics JSONB")
+        conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS highlights JSONB")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS ai_classify_status TEXT")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS ai_classified_at TIMESTAMPTZ")
         # v0.3 文字入口:手写/剪藏的文字条目(速记/日志/计划/剪藏),复用 core,靠 kind 区分
@@ -62,6 +63,7 @@ def ensure_schema():
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS use_tag TEXT")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS source TEXT")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS topics JSONB")
+        conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS highlights JSONB")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS ai_classify_status TEXT DEFAULT 'pending'")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS ai_classified_at TIMESTAMPTZ")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS ai_classify_output JSONB")

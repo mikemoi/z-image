@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { api } from '../api'
 import { ENTRY_TYPES, DOMAINS, USE_TAGS } from '../classification'
+import HighlightControls from './HighlightControls'
 
 function splitTopics(value) {
   return Array.from(new Set(value.split(/[,，\n]/).map((s) => s.trim()).filter(Boolean)))
 }
 
 export default function EntryEditor({ entry, showDate = false, showMood = false, onCancel, onSaved }) {
+  const bodyRef = useRef(null)
+  const [highlights, setHighlights] = useState(Array.isArray(entry.highlights) ? entry.highlights : [])
   const [draft, setDraft] = useState({
     body: entry.body || '',
     logged_for: entry.logged_for || '',
@@ -38,6 +41,7 @@ export default function EntryEditor({ entry, showDate = false, showMood = false,
         domain: draft.domain || null,
         use_tag: draft.use_tag || null,
         topics: splitTopics(draft.topics),
+        highlights,
       })
       onSaved(updated)
     } catch {
@@ -49,7 +53,7 @@ export default function EntryEditor({ entry, showDate = false, showMood = false,
     if (!draft.body.trim()) return
     setSaving(true); setError('')
     try {
-      const updated = await api.updateEntry(entry.id, basePayload())
+      const updated = await api.updateEntry(entry.id, { ...basePayload(), highlights })
       await api.reclassify(entry.id)
       onSaved({
         ...updated, entry_type: null, domain: null, use_tag: null, topics: null,
@@ -63,7 +67,8 @@ export default function EntryEditor({ entry, showDate = false, showMood = false,
   return (
     <div className="entry-editor">
       <label>正文</label>
-      <textarea className="capture-input" rows={4} value={draft.body} onChange={(e) => set('body', e.target.value)} />
+      <textarea ref={bodyRef} className="capture-input" rows={4} value={draft.body} onChange={(e) => set('body', e.target.value)} />
+      <HighlightControls textareaRef={bodyRef} highlights={highlights} onChange={setHighlights} />
       {showDate && <><label>日期</label><input type="date" value={draft.logged_for} onChange={(e) => set('logged_for', e.target.value)} /></>}
       {showMood && <><label>我填写的心情</label><input value={draft.mood} onChange={(e) => set('mood', e.target.value)} placeholder="可选" /></>}
       <div className="entry-editor-grid">

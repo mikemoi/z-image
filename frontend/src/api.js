@@ -61,7 +61,11 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),
     }),
-  deleteItem: (id) => req(`/items/${id}/purge`, { method: 'DELETE' }),   // 永久删(含磁盘原图)
+  deleteItem: (id) => req(`/items/${id}/soft-delete`, { method: 'PATCH' }),
+  restoreItem: (id) => req(`/items/${id}/restore`, { method: 'POST' }),
+  purgeItem: (id) => req(`/items/${id}/purge`, { method: 'DELETE' }),
+  reviewQueue: (limit = 10) => req(`/items/review-queue?limit=${limit}`),
+  recommendations: (limit = 10) => req(`/items/recommendations?limit=${limit}`),
 
   uploadItems: (files) => {
     const fd = new FormData()
@@ -79,6 +83,8 @@ export const api = {
   toNote: (id) => req(`/items/${id}/to-note`, { method: 'POST' }),
   resurface: (limit = 5) => req(`/feed/resurface?limit=${limit}`),
   deleteNote: (id) => req(`/feed/notes/${id}/soft-delete`, { method: 'PATCH' }),
+  restoreNote: (id) => req(`/feed/notes/${id}/restore`, { method: 'POST' }),
+  purgeNote: (id) => req(`/feed/notes/${id}/purge`, { method: 'DELETE' }),
   search: (q) => req(`/search?q=${encodeURIComponent(q)}`),
 
   // 「问问 AI」:按需生成看法 + 采纳提议的新分类
@@ -132,8 +138,11 @@ export const api = {
       body: JSON.stringify({ target }),
     }),
   deleteEntry: (id) => req(`/entries/${id}`, { method: 'DELETE' }),
+  restoreEntry: (id) => req(`/entries/${id}/restore`, { method: 'POST' }),
+  purgeEntry: (id) => req(`/entries/${id}/purge`, { method: 'DELETE' }),
   promoteIdea: (id) => req(`/entries/${id}/promote`, { method: 'POST' }),
   reclassify: (id) => req(`/entries/${id}/reclassify`, { method: 'POST' }),
+  trash: () => req('/trash'),
 
   // 设置:OCR / 问问AI 模型切换
   getSettings: () => req('/settings'),

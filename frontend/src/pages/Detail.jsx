@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import Img from '../components/Img'
 import Icon from '../components/Icon'
+import HighlightText from '../components/HighlightText'
+import HighlightControls from '../components/HighlightControls'
 
 const THEMES = ['trading', 'ai', 'adhd', 'language', 'life', 'other']
 const THEME_LABEL = { trading: '交易', ai: 'AI', adhd: 'ADHD', language: '语言', life: '生活', other: '其他' }
@@ -19,6 +21,9 @@ export default function Detail() {
   const [insight, setInsight] = useState(null)
   const [asking, setAsking] = useState(false)
   const [idea, setIdea] = useState('')
+  const [marking, setMarking] = useState(false)
+  const [markDraft, setMarkDraft] = useState([])
+  const markTextRef = useRef(null)
 
   useEffect(() => {
     setInsight(null)
@@ -54,6 +59,10 @@ export default function Detail() {
   async function del() {
     await api.deleteItem(item.id)
     nav(-1)
+  }
+  async function saveHighlights() {
+    const updated = await api.updateItem(item.id, { highlights: markDraft })
+    setItem(updated); setDraft(updated); setMarking(false)
   }
   async function keep() {   // 留下:留档,标记已处理
     await api.review(item.id)
@@ -113,10 +122,23 @@ export default function Detail() {
         </div>
       )}
 
-      {item.clean_text && (
+      {(item.clean_text || item.raw_text) && (
         <div className="detail-block">
           <div className="block-h">正文</div>
-          <div className="block-text pre">{item.clean_text}</div>
+          <HighlightText text={item.clean_text || item.raw_text} highlights={item.highlights} className="block-text pre" />
+        </div>
+      )}
+
+      {marking && (
+        <div className="edit-box highlight-editor">
+          <label>选中原文后标为重点</label>
+          <textarea ref={markTextRef} className="capture-input" rows={10}
+            value={item.clean_text || item.raw_text || ''} readOnly />
+          <HighlightControls textareaRef={markTextRef} highlights={markDraft} onChange={setMarkDraft} />
+          <div className="entry-acts">
+            <button className="mini" onClick={() => setMarking(false)}>取消</button>
+            <button className="mini entry-save" onClick={saveHighlights}>保存</button>
+          </div>
         </div>
       )}
 
@@ -189,6 +211,9 @@ export default function Detail() {
       {/* 底部操作:标签 / 精选 / 删除(不删即留下) */}
       <div className="detail-actions">
         <button className="act" onClick={() => setEditing((v) => !v)}>{editing ? '取消' : '标签'}</button>
+        {(item.clean_text || item.raw_text) && <button className="act" onClick={() => {
+          setMarkDraft(Array.isArray(item.highlights) ? item.highlights : []); setMarking((v) => !v)
+        }}>{marking ? '取消重点' : '标重点'}</button>}
         {!isAsset && <button className="act act-primary" onClick={pick} disabled={digested}>{digested ? '已精选' : '精选'}</button>}
         <button className="act act-danger" onClick={del}>删除</button>
       </div>

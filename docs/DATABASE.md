@@ -124,6 +124,7 @@
 | `use_tag` | TEXT | 用途：方法/避坑/心态/工具/灵感/存档/决策/参考 |
 | `source` | TEXT | 自己/截图/文件；创建时由服务端推断 |
 | `topics` | JSONB | 自由标签字符串数组 |
+| `highlights` | JSONB | 重点原句数组；人工结果优先，AI 不覆盖已有值 |
 | `ai_classify_status` | TEXT DEFAULT pending | pending/done/failed；failed 不自动重试 |
 | `ai_classified_at` | TIMESTAMPTZ | 自动分类成功时间 |
 | `ai_classify_output` | JSONB | 分类器规整结果与原始返回 |
@@ -171,6 +172,7 @@
 | `entry_type` | TEXT | 统一分类类型 |
 | `domain` | TEXT | 统一分类领域 |
 | `topics` | JSONB | 自由标签数组 |
+| `highlights` | JSONB | 重点原句数组；最多由 AI 建议 3 条，可人工增删 |
 | `ai_classify_status` | TEXT | NULL/pending/done/failed |
 | `ai_classified_at` | TIMESTAMPTZ | 分类成功时间 |
 | `reviewed_at` | TIMESTAMPTZ | 闸门一:标记已看 |

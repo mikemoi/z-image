@@ -32,6 +32,7 @@ class _FakeConnection:
             "source_item_id": params[5], "theme": None, "promoted_at": None,
             "entry_type": params[6], "domain": params[7], "use_tag": params[8],
             "source": params[9], "topics": None, "ai_classify_status": "pending",
+            "highlights": params[11],
             "ai_classified_at": None, "ai_classify_output": None,
             "created_at": now, "updated_at": now,
         })
@@ -53,6 +54,7 @@ class _CaptureConnection:
             "source_item_id": None, "theme": None, "promoted_at": None,
             "entry_type": "规则", "domain": None, "use_tag": None,
             "source": "自己", "topics": None, "ai_classify_status": "done",
+            "highlights": None,
             "ai_classified_at": None, "ai_classify_output": None,
             "created_at": now, "updated_at": now,
         })
@@ -66,11 +68,13 @@ class ClassificationContractTests(unittest.TestCase):
         out = normalize({
             "entry_type": "想法", "domain": "身心", "use_tag": "参考",
             "topics": [" ADHD ", "药物", "", "他人经验", "一", "二", "三"],
+            "highlights": [" 第一句。 ", "第二句。", "第三句。", "第四句。"],
         })
         self.assertEqual(out["entry_type"], "想法")
         self.assertEqual(out["domain"], "身心")
         self.assertEqual(out["use_tag"], "参考")
         self.assertEqual(out["topics"], ["ADHD", "药物", "他人经验", "一", "二"])
+        self.assertEqual(out["highlights"], ["第一句。", "第二句。", "第三句。"])
 
     def test_normalize_rejects_unknown_fixed_values(self):
         out = normalize({"entry_type": "文章", "domain": "工作", "use_tag": "证据"})
@@ -85,6 +89,10 @@ class ClassificationContractTests(unittest.TestCase):
             EntryCreate(body="非法", entry_type="文章")
         with self.assertRaises(ValidationError):
             EntryUpdate(use_tag="证据")
+
+    def test_entry_models_accept_highlights(self):
+        payload = EntryCreate(body="先做一步。再看结果。", highlights=["先做一步。"])
+        self.assertEqual(payload.highlights, ["先做一步。"])
 
 
 class EntrySourceRuleTests(unittest.IsolatedAsyncioTestCase):

@@ -22,6 +22,7 @@ class ItemBrief(BaseModel):
     entry_type: str | None = None
     domain: str | None = None
     topics: list[str] | None = None
+    highlights: list[str] | None = None
     ai_classify_status: str | None = None
     reviewed_at: datetime | None = None
     promoted_at: datetime | None = None
@@ -53,6 +54,7 @@ class ItemUpdate(BaseModel):
     entry_type: str | None = None
     domain: str | None = None
     topics: list[str] | None = None
+    highlights: list[str] | None = None
 
 
 class DimensionStats(BaseModel):
@@ -71,6 +73,15 @@ class OverviewStats(BaseModel):
     uses: dict[str, int]
     sources: dict[str, int]
     classify_statuses: dict[str, int]
+
+
+class TrashItem(BaseModel):
+    kind: str                         # item | entry | note
+    id: int
+    title: str | None = None
+    body: str | None = None
+    checksum: str | None = None
+    deleted_at: datetime
 
 
 class PromoteResult(BaseModel):

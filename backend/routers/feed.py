@@ -35,13 +35,42 @@ async def resurface(limit: int = Query(default=5, le=20)):
 
 @router.patch("/notes/{note_id}/soft-delete", response_model=OkResult)
 async def delete_note(note_id: int):
-    """永久删掉这条碎片(无回收站),以后不再遇见。"""
+    """移入回收站。"""
     with get_conn() as conn:
         r = conn.execute(
-            "DELETE FROM core.notes WHERE id = %s RETURNING id", (note_id,)
+            """UPDATE core.notes SET deleted_at=now()
+               WHERE id=%s AND deleted_at IS NULL RETURNING id""", (note_id,)
         ).fetchone()
         conn.commit()
     if not r:
         from fastapi import HTTPException
         raise HTTPException(404, "note not found")
+    return OkResult()
+
+
+@router.post("/notes/{note_id}/restore", response_model=OkResult)
+async def restore_note(note_id: int):
+    with get_conn() as conn:
+        r = conn.execute(
+            """UPDATE core.notes SET deleted_at=NULL
+               WHERE id=%s AND deleted_at IS NOT NULL RETURNING id""", (note_id,)
+        ).fetchone()
+        conn.commit()
+    if not r:
+        from fastapi import HTTPException
+        raise HTTPException(404, "note not found in trash")
+    return OkResult()
+
+
+@router.delete("/notes/{note_id}/purge", response_model=OkResult)
+async def purge_note(note_id: int):
+    with get_conn() as conn:
+        r = conn.execute(
+            "DELETE FROM core.notes WHERE id=%s AND deleted_at IS NOT NULL RETURNING id",
+            (note_id,),
+        ).fetchone()
+        conn.commit()
+    if not r:
+        from fastapi import HTTPException
+        raise HTTPException(404, "note not found in trash")
     return OkResult()
