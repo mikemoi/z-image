@@ -94,11 +94,17 @@ export default function Detail() {
       {item.title && <h1 className="detail-title">{item.title}</h1>}
 
       <div className="detail-tags">
-        {item.theme && <span className="tag tag-theme">{THEME_LABEL[item.theme] || item.theme}</span>}
+        {item.entry_type && <span className="tag tag-gran">{item.entry_type}</span>}
+        {item.domain && <span className="tag tag-theme">{item.domain}</span>}
         {item.use_tag && <span className="tag tag-use">{item.use_tag}</span>}
-        {item.granularity && <span className="tag tag-gran">{item.granularity === 'knowledge' ? '知识' : item.granularity === 'asset' ? '资料' : '碎片'}</span>}
+        {item.ai_classify_status == null && item.status === 'ok' && <span className="tag tag-review">AI 分类中</span>}
         {item.status === 'review' && <span className="tag tag-review">待处理</span>}
       </div>
+      {Array.isArray(item.topics) && item.topics.length > 0 && (
+        <div className="class-topics" style={{ margin: '0 2px 8px' }}>
+          {item.topics.map((t) => <span key={t}>#{t}</span>)}
+        </div>
+      )}
 
       {item.summary && (
         <div className="detail-block">

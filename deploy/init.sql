@@ -123,6 +123,11 @@ CREATE TABLE IF NOT EXISTS image.items (
     is_ocr_suitable BOOLEAN DEFAULT false,
     ai_output       JSONB,
     ai_insight      JSONB,                  -- v0.3「问问 AI」按需生成的看法(缓存,AI 补充非原文)
+    entry_type      TEXT,                   -- 统一 5 维:类型
+    domain          TEXT,                   -- 统一 5 维:领域
+    topics          JSONB,                  -- 统一 5 维:标签
+    ai_classify_status TEXT,                -- 自动分类状态(NULL/pending/done/failed)
+    ai_classified_at   TIMESTAMPTZ,
     reviewed_at     TIMESTAMPTZ,
     promoted_at     TIMESTAMPTZ,
     deleted_at      TIMESTAMPTZ,

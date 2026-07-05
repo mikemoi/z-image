@@ -29,6 +29,12 @@ def ensure_schema():
     全部 IF NOT EXISTS,幂等安全。"""
     with get_conn() as conn:
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS ai_insight JSONB")
+        # 统一 5 维分类也用到截图(source 隐含=截图;use_tag 沿用 Vision;补 type/domain/topics)
+        conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS entry_type TEXT")
+        conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS domain TEXT")
+        conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS topics JSONB")
+        conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS ai_classify_status TEXT")
+        conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS ai_classified_at TIMESTAMPTZ")
         # v0.3 文字入口:手写/剪藏的文字条目(速记/日志/计划/剪藏),复用 core,靠 kind 区分
         conn.execute("""
             CREATE TABLE IF NOT EXISTS core.entries (

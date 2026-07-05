@@ -399,6 +399,7 @@ async def list_items(
         rows = conn.execute(
             f"""SELECT i.id, i.file_id, f.checksum, i.status, i.title, i.summary,
                        i.theme, i.use_tag, i.granularity,
+                       i.entry_type, i.domain, i.topics, i.ai_classify_status,
                        i.reviewed_at, i.promoted_at, i.created_at
                 FROM image.items i
                 JOIN image.files f ON f.id = i.file_id
@@ -421,6 +422,7 @@ async def get_item(item_id: int):
         row = conn.execute(
             """SELECT i.id, i.file_id, f.checksum, f.original_filename, i.status,
                       i.title, i.summary, i.theme, i.use_tag, i.granularity,
+                      i.entry_type, i.domain, i.topics, i.ai_classify_status,
                       i.is_ocr_suitable, i.reviewed_at, i.promoted_at, i.created_at
                FROM image.items i
                JOIN image.files f ON f.id = i.file_id
@@ -443,15 +445,20 @@ async def get_item(item_id: int):
     )
 
 
-_UPDATABLE = {"title", "theme", "use_tag", "status", "granularity"}
+_UPDATABLE = {"title", "theme", "use_tag", "status", "granularity",
+              "entry_type", "domain", "topics"}
 
 
 @router.patch("/{item_id}", response_model=ItemDetail)
 async def update_item(item_id: int, patch: ItemUpdate):
-    """改标签:更新 title/theme/use_tag/status/granularity 中传入的字段。"""
+    """改标签:更新可编辑字段(含 5 维分类)。人工改分类维度则不再被自动分类覆盖。"""
     fields = {k: v for k, v in patch.model_dump(exclude_unset=True).items() if k in _UPDATABLE}
     if not fields:
         raise HTTPException(400, "no updatable fields provided")
+    if "topics" in fields:
+        fields["topics"] = Jsonb(fields["topics"]) if fields["topics"] is not None else None
+    if fields.keys() & {"entry_type", "domain", "topics"}:
+        fields.setdefault("ai_classify_status", "done")
     sets = ", ".join(f"{k} = %s" for k in fields)
     params = list(fields.values()) + [item_id]
     with get_conn() as conn:

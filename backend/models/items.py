@@ -19,6 +19,10 @@ class ItemBrief(BaseModel):
     theme: str | None = None
     use_tag: str | None = None
     granularity: str | None = None
+    entry_type: str | None = None
+    domain: str | None = None
+    topics: list[str] | None = None
+    ai_classify_status: str | None = None
     reviewed_at: datetime | None = None
     promoted_at: datetime | None = None
     created_at: datetime
@@ -46,6 +50,9 @@ class ItemUpdate(BaseModel):
     use_tag: str | None = None
     status: str | None = None
     granularity: str | None = None
+    entry_type: str | None = None
+    domain: str | None = None
+    topics: list[str] | None = None
 
 
 class DimensionStats(BaseModel):

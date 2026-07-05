@@ -204,6 +204,64 @@ def _mark_classify_failed(entry_id: int, msg: str):
         log.error("could not record classify failure for entry %s: %s", entry_id, e)
 
 
+# ── 截图也纳入 5 维分类(读 summary + OCR;不覆盖 Vision 的 use_tag/theme) ──────
+def _fetch_pending_items(limit: int) -> list[dict]:
+    with get_conn() as conn:
+        return conn.execute(
+            """SELECT i.id, i.summary,
+                      (SELECT clean_text FROM image.contents c
+                       WHERE c.item_id=i.id AND c.is_current=true
+                       ORDER BY c.created_at DESC LIMIT 1) AS clean_text
+               FROM image.items i
+               WHERE i.deleted_at IS NULL AND i.status='ok'
+                 AND (i.ai_classify_status IS NULL OR i.ai_classify_status='pending')
+                 AND i.summary IS NOT NULL
+               ORDER BY i.created_at ASC LIMIT %s""",
+            (limit,),
+        ).fetchall()
+
+
+async def classify_item(item_id: int, text: str) -> bool:
+    from classify import call_classify
+    from settings_store import classify_model
+    try:
+        r = await call_classify(text, model=classify_model())
+    except Exception as e:  # noqa: BLE001
+        log.warning("classify failed for item %s: %s", item_id, e)
+        _set_item_classify(item_id, "failed", None)
+        return False
+    try:
+        with get_conn() as conn:
+            conn.execute(
+                """UPDATE image.items
+                   SET entry_type = COALESCE(entry_type, %s),
+                       domain     = COALESCE(domain, %s),
+                       topics     = COALESCE(topics, %s),
+                       ai_classify_status='done', ai_classified_at=now(), updated_at=now()
+                   WHERE id=%s""",
+                (r["entry_type"], r["domain"],
+                 Jsonb(r["topics"]) if r["topics"] else None, item_id),
+            )
+            conn.commit()
+        return True
+    except Exception as e:  # noqa: BLE001
+        log.warning("classify db write failed for item %s: %s", item_id, e)
+        _set_item_classify(item_id, "failed", None)
+        return False
+
+
+def _set_item_classify(item_id: int, status: str, _out):
+    try:
+        with get_conn() as conn:
+            conn.execute(
+                "UPDATE image.items SET ai_classify_status=%s, updated_at=now() WHERE id=%s",
+                (status, item_id),
+            )
+            conn.commit()
+    except Exception:  # noqa: BLE001
+        pass
+
+
 # ── 后台循环 ─────────────────────────────────────────────────────────────────
 _task: asyncio.Task | None = None
 _classify_task: asyncio.Task | None = None
@@ -215,11 +273,18 @@ async def _classify_loop():
     while not _stop.is_set():
         try:
             entries = _fetch_pending_entries(limit=5)
+            items = _fetch_pending_items(limit=5)
             did = False
             for e in entries:
                 if not await _take_budget():
                     break
                 await classify_entry(e["id"], e["body"])
+                did = True
+            for it in items:
+                if not await _take_budget():
+                    break
+                txt = " ".join(filter(None, [it.get("summary"), it.get("clean_text")]))
+                await classify_item(it["id"], txt)
                 did = True
         except Exception as e:  # noqa: BLE001
             log.error("classify cycle error: %s", e)
