@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import { TOPICS_BY_DOMAIN } from '../classification'
 
 const ORDERS = {
   entry_types: ['想法', '句子', '规则', '决策', '知识', '资料', '记录'],
   domains: ['身心', '生活', '能力', '财务', '方向'],
-  uses: ['方法', '避坑', '心态', '工具', '灵感', '存档', '决策', '参考'],
+  main_topics: Object.values(TOPICS_BY_DOMAIN).flat(),
   sources: ['自己', '截图', '文件'],
 }
 
@@ -48,7 +49,7 @@ export default function Overview() {
           <StatSection title="内容" values={stats.contents} />
           <StatSection title="类型" values={stats.entry_types} order={ORDERS.entry_types} />
           <StatSection title="领域" values={stats.domains} order={ORDERS.domains} />
-          <StatSection title="用途" values={stats.uses} order={ORDERS.uses} />
+          <StatSection title="主主题" values={stats.main_topics} order={ORDERS.main_topics} />
           <StatSection title="来源" values={stats.sources} order={ORDERS.sources} />
           <StatSection title="分类状态" values={stats.classify_statuses} order={['已分类', '待分类', '分类失败']} />
         </>

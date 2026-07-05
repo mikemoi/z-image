@@ -17,9 +17,9 @@
 | POST | `/upload` | multipart `images[]`；落盘和建 item 后立即返回，不等 AI |
 | GET | `` | `status/theme/use/granularity/promoted/deleted/limit/offset` 筛选 |
 | GET | `/{id}` | 详情，含原图 checksum、OCR 与统一分类字段 |
-| PATCH | `/{id}` | 修改 title/theme/use_tag/status/granularity/entry_type/domain/topics；人工改分类会锁定 AI 状态 |
-| GET | `/review-queue?limit=10` | 集中批阅队列；支持 `entry_type/domain/use_tag/topic/source` 分类筛选 |
-| GET | `/review-facets` | 集中批阅未阅内容的类型、领域、用途、来源、标签计数 |
+| PATCH | `/{id}` | 修改新分类字段；旧 theme/use_tag/topics 继续兼容 |
+| GET | `/review-queue?limit=10` | 集中批阅队列；支持 `entry_type/domain/main_topic/tag/source` 筛选 |
+| GET | `/review-facets` | 集中批阅未阅内容的类型、领域、主主题、来源、标签计数 |
 | POST | `/{id}/reclassify` | 只重跑统一分类，不重跑 OCR，保留人工重点 |
 | GET | `/recommendations?limit=10` | 今日推荐队列；优先返回较久未看的截图 |
 | POST | `/{id}/process` | 同步跑 Vision，调试用，会真实调用 AI |
@@ -34,7 +34,7 @@
 | POST | `/{id}/restore` | 恢复 |
 | DELETE | `/{id}/purge` | 永久删除 item；无其他引用时同时删原图 |
 
-Item 的统一分类字段为 `entry_type/domain/use_tag/topics`；`highlights` 保存 AI 建议或人工确认的原文重点。来源在业务上固定为“截图”。旧 `theme/granularity` 仍保留。
+Item 的统一分类字段为 `entry_type/domain/main_topic/related_topics/tags/source`；`highlights` 保存重点。旧 `theme/use_tag/topics/granularity` 仍保留兼容。
 
 ## 文字入口 `/api/entries`
 
@@ -49,8 +49,9 @@ Item 的统一分类字段为 `entry_type/domain/use_tag/topics`；`highlights` 
   "source_item_id": null,
   "entry_type": "句子",
   "domain": "方向",
-  "use_tag": "心态",
-  "topics": ["正向循环"],
+  "main_topic": "规则",
+  "related_topics": ["正向循环"],
+  "tags": ["心态"],
   "highlights": ["转化，而不是惩罚。"]
 }
 ```
@@ -69,13 +70,13 @@ Item 的统一分类字段为 `entry_type/domain/use_tag/topics`；`highlights` 
 | GET | `/logs/on-this-day` | 往年今天 |
 | PATCH | `/{id}` | 修改正文或分类；分类字段人工修改后状态置 done |
 | POST | `/{id}/promote` | 想法精选入 core.knowledge，重复调用返回 409 |
-| POST | `/{id}/reclassify` | 清空四个分类字段并置 pending，供 Worker 重跑；不清除人工重点 |
+| POST | `/{id}/reclassify` | 清空新分类字段并置 pending；旧字段和人工重点不清除 |
 | POST | `/{id}/file` | 兼容归位到 note/knowledge 的旧能力 |
 | DELETE | `/{id}` | 移入回收站（软删除） |
 | POST | `/{id}/restore` | 从回收站恢复 |
 | DELETE | `/{id}/purge` | 永久删除已在回收站的 Entry |
 
-Entry 响应包含：`entry_type/domain/use_tag/source/topics/highlights/ai_classify_status/ai_classified_at/ai_classify_output`，以及旧字段 `kind/theme/source_item_id`。
+Entry 响应包含：`entry_type/domain/main_topic/related_topics/tags/source/highlights/ai_classify_status/ai_classified_at/ai_classify_output`，以及旧字段 `kind/theme/use_tag/topics/source_item_id`。
 
 ## 设置 `/api/settings`
 
@@ -93,7 +94,7 @@ Entry 响应包含：`entry_type/domain/use_tag/source/topics/highlights/ai_clas
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/stats/dimensions` | 旧 theme/use 维度计数 |
-| GET | `/api/stats/overview` | “我的 → 数据概览”；统一统计内容、类型、领域、用途、来源和分类状态 |
+| GET | `/api/stats/overview` | “我的 → 数据概览”；统计内容、类型、领域、主主题、来源和分类状态 |
 | GET | `/api/stats/theme-candidates` | 聚合旧 suggested_theme |
 | POST | `/api/stats/theme-candidates/adopt` | 批量采纳旧 theme 候选 |
 | GET | `/api/search?q=` | 搜索截图标题/摘要/OCR 与 Entry 正文 |

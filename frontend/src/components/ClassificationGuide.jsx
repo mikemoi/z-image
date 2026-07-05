@@ -12,8 +12,12 @@ export default function ClassificationGuide() {
           </section>
         ))}
         <section>
-          <h3>标签 = 具体讲什么</h3>
-          <p>例如 ADHD、药物、专注达、他人经验、合同、西班牙语、交易、正向循环。</p>
+          <h3>相关主题 = 这条内容还涉及什么</h3>
+          <p>最多 2 个，只从固定主题中选择，用来处理重叠内容。</p>
+        </section>
+        <section>
+          <h3>标签 = 更细的关键词</h3>
+          <p>最多 5 个，例如专注达、反跳、他人经验、NIE、1Panel、Binance、阅读、风控。</p>
           <p>“他人经验”是标签，不是来源。</p>
         </section>
         <section>

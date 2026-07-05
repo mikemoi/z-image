@@ -29,9 +29,13 @@ def ensure_schema():
     全部 IF NOT EXISTS,幂等安全。"""
     with get_conn() as conn:
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS ai_insight JSONB")
-        # 统一 5 维分类也用到截图(source 隐含=截图;use_tag 沿用 Vision;补 type/domain/topics)
+        # 固定主题树分类也用于截图；旧 theme/use_tag/topics 仅兼容保留。
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS entry_type TEXT")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS domain TEXT")
+        conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS main_topic TEXT")
+        conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS related_topics JSONB")
+        conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS tags JSONB")
+        conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS source TEXT DEFAULT '截图'")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS topics JSONB")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS highlights JSONB")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS ai_classify_status TEXT")
@@ -57,9 +61,12 @@ def ensure_schema():
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS source_item_id BIGINT")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS theme TEXT")          # 想法可打主题
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS promoted_at TIMESTAMPTZ")  # 想法已精选入脑
-        # 统一分类体系。保留 kind/theme 等旧字段,新字段先用于 entries 并为后续 AI 分类预留状态。
+        # 统一分类体系。保留 kind/theme/use_tag/topics 等旧字段。
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS entry_type TEXT")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS domain TEXT")
+        conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS main_topic TEXT")
+        conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS related_topics JSONB")
+        conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS tags JSONB")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS use_tag TEXT")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS source TEXT")
         conn.execute("ALTER TABLE core.entries ADD COLUMN IF NOT EXISTS topics JSONB")

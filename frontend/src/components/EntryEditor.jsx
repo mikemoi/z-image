@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { api } from '../api'
-import { ENTRY_TYPES, DOMAINS, USE_TAGS } from '../classification'
+import { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN, ALL_TOPICS } from '../classification'
 
 function splitTopics(value) {
   return Array.from(new Set(value.split(/[,，\n]/).map((s) => s.trim()).filter(Boolean)))
@@ -13,13 +13,20 @@ export default function EntryEditor({ entry, showDate = false, showMood = false,
     mood: entry.mood || '',
     entry_type: entry.entry_type || '',
     domain: entry.domain || '',
-    use_tag: entry.use_tag || '',
-    topics: (entry.topics || []).join('，'),
+    main_topic: entry.main_topic || '',
+    related_topics: entry.related_topics || [],
+    tags: (entry.tags || entry.topics || []).join('，'),
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   function set(field, value) { setDraft((d) => ({ ...d, [field]: value })) }
+  function setRelated(index, value) {
+    const next = [...draft.related_topics]
+    if (value) next[index] = value
+    else next.splice(index, 1)
+    set('related_topics', Array.from(new Set(next.filter(Boolean))).slice(0, 2))
+  }
 
   function basePayload() {
     const payload = { body: draft.body.trim() }
@@ -36,8 +43,9 @@ export default function EntryEditor({ entry, showDate = false, showMood = false,
         ...basePayload(),
         entry_type: draft.entry_type || null,
         domain: draft.domain || null,
-        use_tag: draft.use_tag || null,
-        topics: splitTopics(draft.topics),
+        main_topic: draft.main_topic || null,
+        related_topics: draft.related_topics.filter((v) => v !== draft.main_topic).slice(0, 2),
+        tags: splitTopics(draft.tags).slice(0, 5),
         highlights: (entry.highlights || []).filter((quote) => draft.body.includes(quote)),
       })
       onSaved(updated)
@@ -56,15 +64,26 @@ export default function EntryEditor({ entry, showDate = false, showMood = false,
         <label>类型<select value={draft.entry_type} onChange={(e) => set('entry_type', e.target.value)}>
           <option value="">未分类</option>{ENTRY_TYPES.map((v) => <option key={v}>{v}</option>)}
         </select></label>
-        <label>领域<select value={draft.domain} onChange={(e) => set('domain', e.target.value)}>
+        <label>领域<select value={draft.domain} onChange={(e) => {
+          const domain = e.target.value
+          setDraft((d) => ({ ...d, domain, main_topic: (TOPICS_BY_DOMAIN[domain] || []).includes(d.main_topic) ? d.main_topic : '' }))
+        }}>
           <option value="">未分类</option>{DOMAINS.map((v) => <option key={v}>{v}</option>)}
         </select></label>
-        <label>用途<select value={draft.use_tag} onChange={(e) => set('use_tag', e.target.value)}>
-          <option value="">未分类</option>{USE_TAGS.map((v) => <option key={v}>{v}</option>)}
+        <label>主主题<select value={draft.main_topic} onChange={(e) => set('main_topic', e.target.value)} disabled={!draft.domain}>
+          <option value="">未分类</option>{(TOPICS_BY_DOMAIN[draft.domain] || []).map((v) => <option key={v}>{v}</option>)}
         </select></label>
       </div>
+      <label>相关主题（最多 2 个）</label>
+      <div className="entry-editor-grid related-selects">
+        {[0, 1].map((index) => <select key={index} value={draft.related_topics[index] || ''}
+          onChange={(e) => setRelated(index, e.target.value)}>
+          <option value="">无</option>
+          {ALL_TOPICS.filter((v) => v !== draft.main_topic).map((v) => <option key={v}>{v}</option>)}
+        </select>)}
+      </div>
       <label>标签</label>
-      <input value={draft.topics} onChange={(e) => set('topics', e.target.value)} placeholder="用逗号分隔，例如 ADHD，药物" />
+      <input value={draft.tags} onChange={(e) => set('tags', e.target.value)} placeholder="最多 5 个，例如 专注达，反跳，他人经验" />
       <div className="entry-editor-source">来源：{entry.source || (entry.source_item_id ? '截图' : '自己')}</div>
       {error && <div className="banner-error">{error}</div>}
       <div className="entry-editor-actions">

@@ -27,8 +27,10 @@
 | `theme`(主题) | `trading` `ai` `adhd` `language` `life` `other` | 预置六类;**可生长**(用户采纳 AI 建议后新增,如"运动") |
 | 统一类型 | `想法` `句子` `规则` `决策` `知识` `资料` `记录` | 内容是什么 |
 | 统一领域 | `身心` `生活` `能力` `财务` `方向` | 固定大领域 |
-| `use_tag`(用途) | `方法` `避坑` `心态` `工具` `灵感` `存档` `决策` `参考` | 稳定八类,不生长 |
-| `topics` | JSONB 字符串数组 | 自由小关键词；“他人经验”属于标签 |
+| `main_topic` | 各领域固定六个主题 | 主主题，单选且必须属于 domain |
+| `related_topics` | JSONB 固定主题数组 | 相关主题，最多 2 个 |
+| `tags` | JSONB 字符串数组 | 细节标签，最多 5 个；“他人经验”属于标签 |
+| `use_tag/topics` | 旧字段 | 仅兼容保留，不再作为新分类核心 |
 | `source` | `自己` `截图` `文件` | 进入方式，不表示可信度 |
 | `quality`(AI 质量判断) | `干货` `反面样本` `无信息量` | 反面样本=像鸡汤但有避坑价值,仍值得留;只有无信息量建议清 |
 | `core.tags.kind` | `theme` `use` `topic` | 标签种类;topic 为自由细分(预留) |
@@ -121,9 +123,12 @@
 | `promoted_at` | TIMESTAMPTZ | 想法精选入脑时间 |
 | `entry_type` | TEXT | 类型：想法/句子/规则/决策/知识/资料/记录 |
 | `domain` | TEXT | 领域：身心/生活/能力/财务/方向 |
-| `use_tag` | TEXT | 用途：方法/避坑/心态/工具/灵感/存档/决策/参考 |
+| `main_topic` | TEXT | 对应领域下的固定主主题 |
+| `related_topics` | JSONB | 固定相关主题数组，最多 2 个 |
+| `tags` | JSONB | 细节标签数组，最多 5 个 |
+| `use_tag` | TEXT | 旧用途字段，兼容保留 |
 | `source` | TEXT | 自己/截图/文件；创建时由服务端推断 |
-| `topics` | JSONB | 自由标签字符串数组 |
+| `topics` | JSONB | 旧标签字段，兼容保留 |
 | `highlights` | JSONB | 重点原句数组；人工结果优先，AI 不覆盖已有值 |
 | `ai_classify_status` | TEXT DEFAULT pending | pending/done/failed；failed 不自动重试 |
 | `ai_classified_at` | TIMESTAMPTZ | 自动分类成功时间 |
@@ -171,7 +176,11 @@
 | `ai_insight` | JSONB | 「问问 AI」按需生成的看法缓存(v0.3,见下方结构) |
 | `entry_type` | TEXT | 统一分类类型 |
 | `domain` | TEXT | 统一分类领域 |
-| `topics` | JSONB | 自由标签数组 |
+| `main_topic` | TEXT | 固定主主题 |
+| `related_topics` | JSONB | 固定相关主题数组，最多 2 个 |
+| `tags` | JSONB | 细节标签数组，最多 5 个 |
+| `source` | TEXT | 默认截图 |
+| `topics` | JSONB | 旧标签字段，兼容保留 |
 | `highlights` | JSONB | 重点原句数组；最多由 AI 建议 3 条，可人工增删 |
 | `ai_classify_status` | TEXT | NULL/pending/done/failed |
 | `ai_classified_at` | TIMESTAMPTZ | 分类成功时间 |
@@ -182,7 +191,7 @@
 
 索引:`idx_items_status`、`idx_items_theme`、`idx_items_use`、`idx_items_deleted`。
 
-截图沿用 Vision 生成的 `use_tag`，分类 Worker 只补 `entry_type/domain/topics`，不覆盖 `theme/use_tag/granularity`。截图来源在业务上固定为“截图”，当前不单独存 `source` 列。
+Vision 仍生成旧 `theme/use_tag/granularity` 供兼容链路使用；统一分类 Worker 写入 `entry_type/domain/main_topic/related_topics/tags`，不覆盖旧字段。截图 `source` 默认写“截图”。
 
 **`ai_output` JSONB 结构**(由 `vision.normalize` 产出,worker 原样存):
 ```jsonc

@@ -1,6 +1,7 @@
 """items 相关的响应/请求模型。第二步只需基础字段。"""
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
+from models.entries import TOPICS_BY_DOMAIN
 
 
 class UploadResult(BaseModel):
@@ -21,6 +22,10 @@ class ItemBrief(BaseModel):
     granularity: str | None = None
     entry_type: str | None = None
     domain: str | None = None
+    main_topic: str | None = None
+    related_topics: list[str] | None = None
+    tags: list[str] | None = None
+    source: str = "截图"
     topics: list[str] | None = None
     highlights: list[str] | None = None
     ai_classify_status: str | None = None
@@ -53,8 +58,23 @@ class ItemUpdate(BaseModel):
     granularity: str | None = None
     entry_type: str | None = None
     domain: str | None = None
+    main_topic: str | None = None
+    related_topics: list[str] | None = Field(default=None, max_length=2)
+    tags: list[str] | None = Field(default=None, max_length=5)
     topics: list[str] | None = None
     highlights: list[str] | None = None
+
+    @model_validator(mode="after")
+    def validate_topic_tree(self):
+        fixed_topics = {topic for values in TOPICS_BY_DOMAIN.values() for topic in values}
+        if self.domain and self.main_topic and self.main_topic not in TOPICS_BY_DOMAIN.get(self.domain, set()):
+            raise ValueError("main_topic 必须属于所选 domain")
+        related = self.related_topics or []
+        if any(topic not in fixed_topics for topic in related):
+            raise ValueError("related_topics 只能使用固定主题")
+        if len(related) != len(set(related)) or (self.main_topic and self.main_topic in related):
+            raise ValueError("related_topics 不能重复或包含 main_topic")
+        return self
 
 
 class DimensionStats(BaseModel):
@@ -70,7 +90,7 @@ class OverviewStats(BaseModel):
     contents: dict[str, int]
     entry_types: dict[str, int]
     domains: dict[str, int]
-    uses: dict[str, int]
+    main_topics: dict[str, int]
     sources: dict[str, int]
     classify_statuses: dict[str, int]
 

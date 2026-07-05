@@ -174,14 +174,16 @@ async def classify_entry(entry_id: int, body: str) -> bool:
                 """UPDATE core.entries
                    SET entry_type = COALESCE(entry_type, %s),
                        domain     = COALESCE(domain, %s),
-                       use_tag    = COALESCE(use_tag, %s),
-                       topics     = COALESCE(topics, %s),
+                       main_topic = COALESCE(main_topic, %s),
+                       related_topics = COALESCE(related_topics, %s),
+                       tags       = COALESCE(tags, %s),
                        highlights = COALESCE(highlights, %s),
                        ai_classify_status = 'done', ai_classified_at = now(),
                        ai_classify_output = %s, updated_at = now()
                    WHERE id = %s""",
-                (r["entry_type"], r["domain"], r["use_tag"],
-                 Jsonb(r["topics"]) if r["topics"] else None,
+                (r["entry_type"], r["domain"], r["main_topic"],
+                 Jsonb(r["related_topics"]) if r["related_topics"] else None,
+                 Jsonb(r["tags"]) if r["tags"] else None,
                  Jsonb(r["highlights"]) if r["highlights"] else None,
                  Jsonb(r), entry_id),
             )
@@ -206,7 +208,7 @@ def _mark_classify_failed(entry_id: int, msg: str):
         log.error("could not record classify failure for entry %s: %s", entry_id, e)
 
 
-# ── 截图也纳入 5 维分类(读 summary + OCR;不覆盖 Vision 的 use_tag/theme) ──────
+# ── 截图也纳入统一分类(读 summary + OCR;旧 theme/use_tag 只兼容保留) ──────
 def _fetch_pending_items(limit: int) -> list[dict]:
     with get_conn() as conn:
         return conn.execute(
@@ -238,13 +240,15 @@ async def classify_item(item_id: int, text: str) -> bool:
                 """UPDATE image.items
                    SET entry_type = COALESCE(entry_type, %s),
                        domain     = COALESCE(domain, %s),
-                       use_tag    = COALESCE(use_tag, %s),
-                       topics     = COALESCE(topics, %s),
+                       main_topic = COALESCE(main_topic, %s),
+                       related_topics = COALESCE(related_topics, %s),
+                       tags       = COALESCE(tags, %s),
                        highlights = COALESCE(highlights, %s),
                        ai_classify_status='done', ai_classified_at=now(), updated_at=now()
                    WHERE id=%s""",
-                (r["entry_type"], r["domain"], r["use_tag"],
-                 Jsonb(r["topics"]) if r["topics"] else None,
+                (r["entry_type"], r["domain"], r["main_topic"],
+                 Jsonb(r["related_topics"]) if r["related_topics"] else None,
+                 Jsonb(r["tags"]) if r["tags"] else None,
                  Jsonb(r["highlights"]) if r["highlights"] else None, item_id),
             )
             conn.commit()

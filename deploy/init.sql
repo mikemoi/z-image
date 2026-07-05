@@ -76,7 +76,10 @@ CREATE TABLE IF NOT EXISTS core.entries (
     promoted_at TIMESTAMPTZ,                        -- 想法已精选入脑
     entry_type TEXT,                                -- 内容类型,不同于入口 kind
     domain     TEXT,                                -- 领域:身心/生活/能力/财务/方向
-    use_tag    TEXT,                                -- 用途
+    main_topic TEXT,                                -- 固定主主题
+    related_topics JSONB,                           -- 固定相关主题,最多2个
+    tags       JSONB,                               -- 细节标签,最多5个
+    use_tag    TEXT,                                -- 旧用途,仅兼容保留
     source     TEXT,                                -- 来源:自己/截图/文件
     topics     JSONB,                               -- 自由标签数组
     highlights JSONB,                               -- 重点原句数组(AI初稿+人工最终结果)
@@ -126,7 +129,11 @@ CREATE TABLE IF NOT EXISTS image.items (
     ai_insight      JSONB,                  -- v0.3「问问 AI」按需生成的看法(缓存,AI 补充非原文)
     entry_type      TEXT,                   -- 统一 5 维:类型
     domain          TEXT,                   -- 统一 5 维:领域
-    topics          JSONB,                  -- 统一 5 维:标签
+    main_topic      TEXT,                   -- 固定主主题
+    related_topics  JSONB,                  -- 固定相关主题,最多2个
+    tags            JSONB,                  -- 细节标签,最多5个
+    source          TEXT DEFAULT '截图',    -- 进入方式
+    topics          JSONB,                  -- 旧标签字段,兼容保留
     highlights      JSONB,                  -- 重点原句数组
     ai_classify_status TEXT,                -- 自动分类状态(NULL/pending/done/failed)
     ai_classified_at   TIMESTAMPTZ,

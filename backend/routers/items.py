@@ -372,33 +372,37 @@ async def to_note(item_id: int):
     return NoteResult(note_id=note_id)
 
 
-def _review_filter_sql(entry_type: str | None, domain: str | None, use_tag: str | None,
-                       topic: str | None, source: str | None):
+def _review_filter_sql(entry_type: str | None, domain: str | None, main_topic: str | None,
+                       tag: str | None, source: str | None):
     clauses: list[str] = []
     params: list = []
-    for column, value in (("i.entry_type", entry_type), ("i.domain", domain), ("i.use_tag", use_tag)):
+    for column, value in (("i.entry_type", entry_type), ("i.domain", domain),
+                          ("i.main_topic", main_topic)):
         if value:
             clauses.append(f"{column}=%s")
             params.append(value)
-    if topic:
-        clauses.append("i.topics @> %s")
-        params.append(Jsonb([topic]))
-    if source and source != "截图":
-        clauses.append("false")
+    if tag:
+        clauses.append("COALESCE(i.tags, i.topics) @> %s")
+        params.append(Jsonb([tag]))
+    if source:
+        clauses.append("COALESCE(i.source, '截图')=%s")
+        params.append(source)
     return clauses, params
 
 
 def _reading_queue(where: str, limit: int, order: str,
                    entry_type: str | None = None, domain: str | None = None,
-                   use_tag: str | None = None, topic: str | None = None,
+                   main_topic: str | None = None, tag: str | None = None,
                    source: str | None = None) -> ItemList:
-    filters, params = _review_filter_sql(entry_type, domain, use_tag, topic, source)
+    filters, params = _review_filter_sql(entry_type, domain, main_topic, tag, source)
     extra = "".join(f" AND {clause}" for clause in filters)
     with get_conn() as conn:
         rows = conn.execute(
             f"""SELECT i.id, i.file_id, f.checksum, i.status, i.title, i.summary,
                        i.theme, i.use_tag, i.granularity, i.entry_type, i.domain,
-                       i.topics, i.highlights, i.ai_classify_status,
+                       i.main_topic, i.related_topics, COALESCE(i.tags, i.topics) AS tags,
+                       COALESCE(i.source, '截图') AS source, i.topics,
+                       i.highlights, i.ai_classify_status,
                        i.reviewed_at, i.promoted_at, i.created_at
                 FROM image.items i JOIN image.files f ON f.id=i.file_id
                 WHERE i.deleted_at IS NULL AND i.status='ok' AND {where}{extra}
@@ -414,13 +418,13 @@ async def review_queue(
     limit: int = Query(default=10, ge=1, le=20),
     entry_type: str | None = Query(default=None),
     domain: str | None = Query(default=None),
-    use_tag: str | None = Query(default=None),
-    topic: str | None = Query(default=None),
+    main_topic: str | None = Query(default=None),
+    tag: str | None = Query(default=None),
     source: str | None = Query(default=None),
 ):
     """集中批阅:只取尚未人工看过的内容,每组默认 10 条。"""
     return _reading_queue("i.reviewed_at IS NULL", limit, "i.created_at ASC",
-                          entry_type, domain, use_tag, topic, source)
+                          entry_type, domain, main_topic, tag, source)
 
 
 @router.get("/review-facets")
@@ -432,7 +436,8 @@ async def review_facets():
                WHERE i.deleted_at IS NULL AND i.status='ok' AND i.reviewed_at IS NULL"""
         ).fetchone()["c"]
         result = {}
-        for key, column in (("entry_types", "entry_type"), ("domains", "domain"), ("uses", "use_tag")):
+        for key, column in (("entry_types", "entry_type"), ("domains", "domain"),
+                            ("main_topics", "main_topic"), ("sources", "source")):
             rows = conn.execute(
                 f"""SELECT i.{column} AS value, count(*) AS c FROM image.items i
                     WHERE i.deleted_at IS NULL AND i.status='ok' AND i.reviewed_at IS NULL
@@ -440,17 +445,20 @@ async def review_facets():
                     GROUP BY i.{column}"""
             ).fetchall()
             result[key] = {row["value"]: row["c"] for row in rows}
-        topics = conn.execute(
-            """SELECT topic.value, count(DISTINCT i.id) AS c
+        tags = conn.execute(
+            """SELECT tag.value, count(DISTINCT i.id) AS c
                FROM image.items i
                CROSS JOIN LATERAL jsonb_array_elements_text(
-                   COALESCE(i.topics, '[]'::jsonb)
-               ) AS topic(value)
+                   COALESCE(i.tags, i.topics, '[]'::jsonb)
+               ) AS tag(value)
                WHERE i.deleted_at IS NULL AND i.status='ok' AND i.reviewed_at IS NULL
-               GROUP BY topic.value"""
+               GROUP BY tag.value"""
         ).fetchall()
-        result["topics"] = {row["value"]: row["c"] for row in topics}
-    return {"total": total, "sources": {"截图": total}, **result}
+        result["tags"] = {row["value"]: row["c"] for row in tags}
+    result.setdefault("sources", {})
+    if total and not result["sources"]:
+        result["sources"] = {"截图": total}
+    return {"total": total, **result}
 
 
 @router.get("/recommendations", response_model=ItemList)
@@ -465,7 +473,8 @@ async def reclassify_item(item_id: int):
     with get_conn() as conn:
         row = conn.execute(
             """UPDATE image.items
-               SET entry_type=NULL, domain=NULL, use_tag=NULL, topics=NULL,
+               SET entry_type=NULL, domain=NULL, main_topic=NULL,
+                   related_topics=NULL, tags=NULL,
                    ai_classify_status='pending', ai_classified_at=NULL, updated_at=now()
                WHERE id=%s AND deleted_at IS NULL RETURNING id""",
             (item_id,),
@@ -503,7 +512,9 @@ async def list_items(
         rows = conn.execute(
             f"""SELECT i.id, i.file_id, f.checksum, i.status, i.title, i.summary,
                        i.theme, i.use_tag, i.granularity,
-                       i.entry_type, i.domain, i.topics, i.highlights, i.ai_classify_status,
+                       i.entry_type, i.domain, i.main_topic, i.related_topics,
+                       COALESCE(i.tags, i.topics) AS tags, COALESCE(i.source, '截图') AS source,
+                       i.topics, i.highlights, i.ai_classify_status,
                        i.reviewed_at, i.promoted_at, i.created_at
                 FROM image.items i
                 JOIN image.files f ON f.id = i.file_id
@@ -526,7 +537,9 @@ async def get_item(item_id: int):
         row = conn.execute(
             """SELECT i.id, i.file_id, f.checksum, f.original_filename, i.status,
                       i.title, i.summary, i.theme, i.use_tag, i.granularity,
-                      i.entry_type, i.domain, i.topics, i.highlights, i.ai_classify_status,
+                      i.entry_type, i.domain, i.main_topic, i.related_topics,
+                      COALESCE(i.tags, i.topics) AS tags, COALESCE(i.source, '截图') AS source,
+                      i.topics, i.highlights, i.ai_classify_status,
                       i.is_ocr_suitable, i.reviewed_at, i.promoted_at, i.created_at
                FROM image.items i
                JOIN image.files f ON f.id = i.file_id
@@ -550,7 +563,8 @@ async def get_item(item_id: int):
 
 
 _UPDATABLE = {"title", "theme", "use_tag", "status", "granularity",
-              "entry_type", "domain", "topics", "highlights"}
+              "entry_type", "domain", "main_topic", "related_topics", "tags",
+              "topics", "highlights"}
 
 
 @router.patch("/{item_id}", response_model=ItemDetail)
@@ -559,11 +573,12 @@ async def update_item(item_id: int, patch: ItemUpdate):
     fields = {k: v for k, v in patch.model_dump(exclude_unset=True).items() if k in _UPDATABLE}
     if not fields:
         raise HTTPException(400, "no updatable fields provided")
-    if "topics" in fields:
-        fields["topics"] = Jsonb(fields["topics"]) if fields["topics"] is not None else None
+    for name in ("related_topics", "tags", "topics"):
+        if name in fields:
+            fields[name] = Jsonb(fields[name]) if fields[name] is not None else None
     if "highlights" in fields:
         fields["highlights"] = Jsonb(fields["highlights"]) if fields["highlights"] is not None else None
-    if fields.keys() & {"entry_type", "domain", "topics"}:
+    if fields.keys() & {"entry_type", "domain", "main_topic", "related_topics", "tags"}:
         fields.setdefault("ai_classify_status", "done")
     sets = ", ".join(f"{k} = %s" for k in fields)
     params = list(fields.values()) + [item_id]

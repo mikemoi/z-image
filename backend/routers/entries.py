@@ -54,14 +54,19 @@ async def create_entry(payload: EntryCreate):
         row = conn.execute(
             """INSERT INTO core.entries
                       (kind, body, status, mood, pinned, logged_for, source_item_id,
-                       entry_type, domain, use_tag, source, topics, highlights)
-               VALUES (%s, %s, 'filed', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                       entry_type, domain, main_topic, related_topics, tags,
+                       use_tag, source, topics, highlights)
+               VALUES (%s, %s, 'filed', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                RETURNING id, kind, body, status, mood, pinned, logged_for, source_item_id,
-                         theme, promoted_at, entry_type, domain, use_tag, source, topics, highlights,
+                         theme, promoted_at, entry_type, domain, main_topic, related_topics, tags,
+                         use_tag, source, topics, highlights,
                          ai_classify_status, ai_classified_at, ai_classify_output,
                          created_at, updated_at""",
             (kind, body, payload.mood, pinned, logged_for, payload.source_item_id,
-             payload.entry_type, payload.domain, payload.use_tag, source,
+             payload.entry_type, payload.domain, payload.main_topic,
+             Jsonb(payload.related_topics) if payload.related_topics is not None else None,
+             Jsonb(payload.tags) if payload.tags is not None else None,
+             payload.use_tag, source,
              Jsonb(payload.topics) if payload.topics is not None else None,
              Jsonb(payload.highlights) if payload.highlights is not None else None),
         ).fetchone()
@@ -76,7 +81,8 @@ async def ideas():
         rows = conn.execute(
             """SELECT e.id, e.kind, e.body, e.status, e.mood, e.pinned, e.logged_for,
                       e.source_item_id, e.theme, e.promoted_at,
-                      e.entry_type, e.domain, e.use_tag, e.source, e.topics, e.highlights,
+                      e.entry_type, e.domain, e.main_topic, e.related_topics, e.tags,
+                      e.use_tag, e.source, e.topics, e.highlights,
                       e.ai_classify_status, e.ai_classified_at, e.ai_classify_output,
                       f.checksum,
                       e.created_at, e.updated_at
@@ -129,11 +135,12 @@ async def promote_idea(entry_id: int):
 
 @router.post("/{entry_id}/reclassify", response_model=OkResult)
 async def reclassify(entry_id: int):
-    """重新分类:清掉旧 4 维 + 置 pending,让分类 worker 重跑。"""
+    """重新分类:只清新分类字段；旧 use_tag/topics 保留兼容。"""
     with get_conn() as conn:
         r = conn.execute(
             """UPDATE core.entries
-               SET entry_type=NULL, domain=NULL, use_tag=NULL, topics=NULL,
+               SET entry_type=NULL, domain=NULL, main_topic=NULL,
+                   related_topics=NULL, tags=NULL,
                    ai_classify_status='pending', updated_at=now()
                WHERE id=%s AND deleted_at IS NULL RETURNING id""",
             (entry_id,),
@@ -160,7 +167,8 @@ async def list_entries(
     with get_conn() as conn:
         rows = conn.execute(
             f"""SELECT id, kind, body, status, mood, pinned, logged_for, source_item_id,
-                       theme, promoted_at, entry_type, domain, use_tag, source, topics, highlights,
+                       theme, promoted_at, entry_type, domain, main_topic, related_topics, tags,
+                       use_tag, source, topics, highlights,
                        ai_classify_status, ai_classified_at, ai_classify_output,
                        created_at, updated_at
                 FROM core.entries WHERE {" AND ".join(where)}
@@ -176,7 +184,8 @@ async def inbox():
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT id, kind, body, status, mood, pinned, logged_for, source_item_id,
-                      theme, promoted_at, entry_type, domain, use_tag, source, topics, highlights,
+                      theme, promoted_at, entry_type, domain, main_topic, related_topics, tags,
+                      use_tag, source, topics, highlights,
                       ai_classify_status, ai_classified_at, ai_classify_output,
                       created_at, updated_at
                FROM core.entries
@@ -192,7 +201,8 @@ async def plans():
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT id, kind, body, status, mood, pinned, logged_for, source_item_id,
-                      theme, promoted_at, entry_type, domain, use_tag, source, topics, highlights,
+                      theme, promoted_at, entry_type, domain, main_topic, related_topics, tags,
+                      use_tag, source, topics, highlights,
                       ai_classify_status, ai_classified_at, ai_classify_output,
                       created_at, updated_at
                FROM core.entries
@@ -208,7 +218,8 @@ async def logs(limit: int = Query(default=200, le=500), offset: int = Query(defa
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT id, kind, body, status, mood, pinned, logged_for, source_item_id,
-                      theme, promoted_at, entry_type, domain, use_tag, source, topics, highlights,
+                      theme, promoted_at, entry_type, domain, main_topic, related_topics, tags,
+                      use_tag, source, topics, highlights,
                       ai_classify_status, ai_classified_at, ai_classify_output,
                       created_at, updated_at
                FROM core.entries
@@ -227,7 +238,8 @@ async def on_this_day():
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT id, kind, body, status, mood, pinned, logged_for, source_item_id,
-                      theme, promoted_at, entry_type, domain, use_tag, source, topics, highlights,
+                      theme, promoted_at, entry_type, domain, main_topic, related_topics, tags,
+                      use_tag, source, topics, highlights,
                       ai_classify_status, ai_classified_at, ai_classify_output,
                       created_at, updated_at
                FROM core.entries
@@ -246,12 +258,13 @@ async def update_entry(entry_id: int, patch: EntryUpdate):
     fields = {k: v for k, v in patch.model_dump(exclude_unset=True).items()}
     if not fields:
         raise HTTPException(400, "no fields to update")
-    if "topics" in fields and fields["topics"] is not None:
-        fields["topics"] = Jsonb(fields["topics"])
+    for name in ("related_topics", "tags", "topics"):
+        if name in fields and fields[name] is not None:
+            fields[name] = Jsonb(fields[name])
     if "highlights" in fields and fields["highlights"] is not None:
         fields["highlights"] = Jsonb(fields["highlights"])
     # 人工改了任一分类维度 → 标 done,自动分类 worker 不再覆盖(人工修正优先)
-    if fields.keys() & {"entry_type", "domain", "use_tag", "topics"}:
+    if fields.keys() & {"entry_type", "domain", "main_topic", "related_topics", "tags"}:
         fields.setdefault("ai_classify_status", "done")
     sets = ", ".join(f"{k} = %s" for k in fields)
     with get_conn() as conn:
@@ -259,7 +272,8 @@ async def update_entry(entry_id: int, patch: EntryUpdate):
             f"""UPDATE core.entries SET {sets}, updated_at = now()
                 WHERE id = %s AND deleted_at IS NULL
                 RETURNING id, kind, body, status, mood, pinned, logged_for,
-                          source_item_id, theme, promoted_at, entry_type, domain, use_tag,
+                          source_item_id, theme, promoted_at, entry_type, domain,
+                          main_topic, related_topics, tags, use_tag,
                           source, topics, highlights, ai_classify_status, ai_classified_at,
                           ai_classify_output, created_at, updated_at""",
             list(fields.values()) + [entry_id],

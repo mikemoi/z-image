@@ -38,12 +38,12 @@ async def overview():
                    SELECT domain FROM core.entries WHERE deleted_at IS NULL
                ) x WHERE domain IS NOT NULL GROUP BY domain ORDER BY c DESC"""
         ).fetchall()
-        use_rows = conn.execute(
-            """SELECT use_tag AS name, count(*) AS c FROM (
-                   SELECT use_tag FROM image.items WHERE deleted_at IS NULL
+        topic_rows = conn.execute(
+            """SELECT main_topic AS name, count(*) AS c FROM (
+                   SELECT main_topic FROM image.items WHERE deleted_at IS NULL
                    UNION ALL
-                   SELECT use_tag FROM core.entries WHERE deleted_at IS NULL
-               ) x WHERE use_tag IS NOT NULL GROUP BY use_tag ORDER BY c DESC"""
+                   SELECT main_topic FROM core.entries WHERE deleted_at IS NULL
+               ) x WHERE main_topic IS NOT NULL GROUP BY main_topic ORDER BY c DESC"""
         ).fetchall()
         source_rows = conn.execute(
             """SELECT source AS name, count(*) AS c FROM core.entries
@@ -77,7 +77,7 @@ async def overview():
     total = screenshots + sum(kinds.values())
     return OverviewStats(
         total=total, contents=contents, entry_types=_dict(type_rows),
-        domains=_dict(domain_rows), uses=_dict(use_rows), sources=sources,
+        domains=_dict(domain_rows), main_topics=_dict(topic_rows), sources=sources,
         classify_statuses=_dict(status_rows),
     )
 

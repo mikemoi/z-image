@@ -63,7 +63,7 @@ docker-compose.yml  db(postgres:17)+ backend
 - `tags` / `knowledge_tags`:theme/use 标签,theme 可生长。
 - `entries`:**文字入口**。`kind ∈ {idea,log,plan}`(想法/日志/计划;已废弃 note/clip)。
   关键列:`body, source_item_id(来源截图), theme, promoted_at`,
-  **统一 5 维**:`entry_type, domain, use_tag, source, topics(JSONB)`,
+  **统一分类**:`entry_type, domain, main_topic, related_topics(JSONB), tags(JSONB), source`,
   自动分类状态:`ai_classify_status(NULL/pending/done/failed), ai_classified_at, ai_classify_output`。
 - `settings`:kv(模型切换等)。
 - `idea_clusters`:**尚未建**(想法簇功能设计好了没落地,见第 6 节)。
@@ -72,26 +72,27 @@ docker-compose.yml  db(postgres:17)+ backend
 - `files`:原图事实源,只增不改(用户删手机后是唯一副本)。
 - `items`:条目。Vision 打:`title/theme/use_tag/granularity/summary/is_ocr_suitable`,
   JSONB:`ai_output`(含 suggested_theme/quality)、`ai_insight`(问问AI缓存),
-  **统一 5 维(新)**:`entry_type/domain/topics/ai_classify_status/ai_classified_at`(use_tag 沿用 Vision,source 隐含=截图)。
+  **统一分类(新)**:`entry_type/domain/main_topic/related_topics/tags/source/ai_classify_status/ai_classified_at`。
 - `contents`:OCR 正文(raw_text/clean_text)。
 
 **迁移机制(重要)**:`db.py::ensure_schema()` 在每次启动跑,全是 `ALTER … ADD COLUMN IF NOT EXISTS` / `CREATE … IF NOT EXISTS`,幂等。**部署只需 `git pull && docker compose up -d --build`,不用手动跑 SQL。** `init.sql` 只在全新库首次启动执行。
 
 ---
 
-## 3. 统一分类体系(已"固定",这是核心约定)
+## 3. 统一分类体系（核心约定）
 
-所有内容用 5 个维度。枚举变更至少同步：后端 Entry Literal、`classify.py` 集合与 prompt、前端 `classification.js`、文档和测试。截图人工 PATCH 模型当前仍是普通字符串，分类器输出由 normalize 兜底。
+主分类路径是领域 → 主主题；相关主题解决交叉，标签补细节。枚举变更至少同步后端模型、`classify.py`、前端 `classification.js`、文档和测试。
 
 | 维度 | 字段 | 固定值 |
 |---|---|---|
 | 类型 | `entry_type` | 想法/句子/规则/决策/知识/资料/记录 |
 | 领域 | `domain` | 身心/生活/能力/财务/方向 |
-| 用途 | `use_tag` | 方法/避坑/心态/工具/灵感/存档/决策/参考(**"证据"已统一改"存档"**)|
-| 标签 | `topics` | 自由关键词数组,别人经历一律加 `他人经验` |
+| 主主题 | `main_topic` | 对应领域下固定六选一 |
+| 相关主题 | `related_topics` | 固定主题数组，最多 2 个 |
+| 标签 | `tags` | 细节关键词，最多 5 个；他人经验属于标签 |
 | 来源 | `source` | 自己/截图/文件(只表进入方式,不表可信度)|
 
-改枚举 = 同时改这三处 + 加迁移(如果影响约束)。
+`use_tag/theme/topics` 只兼容保留，不再是新分类核心。AI 只能归类，不能新增类型、领域、主题或来源。
 
 ---
 
@@ -100,7 +101,7 @@ docker-compose.yml  db(postgres:17)+ backend
 | 管线 | 函数 | 模型设置 | 触发 | 产出 |
 |---|---|---|---|---|
 | **消化/OCR** | `vision.call_vision` | `ocr_model` | 上传后 worker `_loop` 自动 | title/theme/use_tag/granularity/summary/quality/suggested_theme + OCR |
-| **自动分类** | `classify.call_classify` | `classify_model` | worker `_classify_loop` 自动(entries + items) | entry_type/domain/topics/highlights(截图不覆盖 vision 的 use_tag/theme) |
+| **自动分类** | `classify.call_classify` | `classify_model` | worker `_classify_loop` 自动(entries + items) | entry_type/domain/main_topic/related_topics/tags/highlights |
 | **问问AI** | `vision.call_insight` | `insight_model` | 详情页按需点击 | explanation/quality/quality_note/suggested_theme(缓存 `ai_insight`) |
 
 **worker.py 两个循环并行**:`_loop`(Vision 处理 review 的 items)、`_classify_loop`(分类 pending 的 entries + ok 未分类的 items)。都受 `_take_budget()`,`VISION_DAILY_BUDGET<=0` 视为不限。Vision 按 `_attempts` 自动重试；统一分类失败置 `failed`，不会自动再捞，需 reclassify。
@@ -113,7 +114,7 @@ docker-compose.yml  db(postgres:17)+ backend
 - **导航 5 tab**:首页 / 上传 / 想法 / 记录 / 我的。我的包含集中批阅、数据概览、AI 设置、长期计划、回收站和分类说明；个人项目不提供退出登录入口。
 - **详情页操作**:“问问 AI”独立于编辑；标签 / 标重点 / 重新分类 / 删除到回收站 + 我的想法输入。前端已取消精选，后端兼容端点保留。
 - **想法/日志/长期计划**:先保存并由 AI 自动处理；普通卡片提供独立“标重点”和“编辑”。`EntryEditor` 只修改正文和分类，不放 AI 操作。想法页不再显示精选按钮，后端 promote/reclassify 仅兼容旧能力。
-- **集中批阅**:连续逐张模式与按分类模式并存；原文完整展开，手机长按选中文字后可直接“标重点”，其下是“问问 AI”。批阅页不提供编辑和精选。分类入口按类型/领域/用途/来源与 topics 关注标签展示未阅数量，选择后每批取 10 条。
+- **集中批阅**:连续逐张模式与按分类模式并存；分类入口按类型、领域、各领域固定主主题、来源和高频标签展示未阅数量。
 - **主题风格**:暖纸底 + 墨青主色 + 线性 SVG 图标(`components/Icon.jsx`),CSS 变量在 `styles.css :root`。
 - **鉴权**:`TokenGate` + token 存 localStorage,`api.js` 每请求带 `Authorization: Bearer`。
 
@@ -122,7 +123,7 @@ docker-compose.yml  db(postgres:17)+ backend
 ## 6. 当前状态 / 待办 / 已知问题
 
 ### 已完成(v0.3 主体)
-捕捉、消化、问问AI、搜索(截图+手写)、回收站/永久删除、今日推荐前后切换、集中批阅、原文重点标注、模型三处分开配、文字入口(想法/日志/计划)、**统一 5 维分类 + AI 自动分类(entries + items 都已接)**、暖纸墨青视觉 + 线性图标、AI 设置独立页。
+捕捉、消化、问问AI、搜索、回收站、今日推荐、集中批阅、重点标注、文字入口、**固定主题树分类 + AI 自动归类**、AI 设置独立页。
 
 ### 待办(非向量,按优先级)
 1. **首页整理**:首页偏杂,尚未收拾(上下文原因暂停)。需先问用户"哪里最碍眼"再动。
@@ -135,7 +136,7 @@ docker-compose.yml  db(postgres:17)+ backend
 **向量 / pgvector / 语义聚合 / 存量导入 / AI 建议合并**——用户要求放到最后。方案已议(本地 bge 中文 embedding + pgvector,对 summary/body 算,先近邻后聚类)。
 
 ### 已知问题 / 需留意
-- **theme 与 domain 并存**:entries/items 上旧 `theme`(生长分类)和新 `domain`(5 维)暂时共存,冗余,以后要理顺(可能 domain 取代 theme,或 theme 降级为 topics)。截图仍有 theme/use_tag/granularity 三个旧维度。
+- **兼容层**:旧 `theme/use_tag/topics/granularity` 仍在数据库和旧 Vision/精选链路中，但不再显示为新分类一级字段，也不由统一分类 AI 维护。
 - **待用户确认**:生产 Vision 是否真在跑。若截图详情"全空/待处理"→ 检查 `.env` 的 `OPENROUTER_API_KEY` 和 `/settings` 里的模型是否有效。诊断:`docker compose logs --tail=50 backend | grep -iE "vision|worker|error"`。首页/浏览页生长分类不显示的 bug 已修(动态渲染 dimensions)。
 - **命名**:软件名待定,候选 Echo/回响、Muse、Prism、拾光(推荐 Echo)。README/docs 里仍叫 zbrain。
 

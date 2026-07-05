@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
-import { ENTRY_TYPES, DOMAINS, USE_TAGS } from '../classification'
+import { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN } from '../classification'
 import Img from '../components/Img'
 import HighlightText from '../components/HighlightText'
 import Icon from '../components/Icon'
 
-const FILTER_LABEL = { entry_type: '类型', domain: '领域', use_tag: '用途', topic: '标签', source: '来源' }
+const FILTER_LABEL = { entry_type: '类型', domain: '领域', main_topic: '主主题', tag: '标签', source: '来源' }
 const SOURCES = ['自己', '截图', '文件']
-const FOCUS_TOPICS = ['ADHD', '交易', '西班牙语', '马德里', '运动', '情绪', '药物', '睡眠']
 
 function FacetGroup({ title, field, values, counts, onPick }) {
+  if (!values.length) return null
   return <section className="review-facet-section">
     <h2 className="section-h">{title}</h2>
     <div className="review-facet-grid">{values.map((value) =>
@@ -26,7 +26,7 @@ export default function ReviewSession() {
   const batch = sp.get('mode') === 'batch'
   const [view, setView] = useState('continuous')
   const [filter, setFilter] = useState({})
-  const [facets, setFacets] = useState({ total: 0, entry_types: {}, domains: {}, uses: {}, sources: {}, topics: {} })
+  const [facets, setFacets] = useState({ total: 0, entry_types: {}, domains: {}, main_topics: {}, sources: {}, tags: {} })
   const [items, setItems] = useState([])
   const [index, setIndex] = useState(0)
   const [detail, setDetail] = useState(null)
@@ -90,7 +90,8 @@ export default function ReviewSession() {
     setClassifying(true)
     try {
       await api.reclassifyItem(detail.id)
-      setDetail((d) => ({ ...d, entry_type: null, domain: null, use_tag: null, topics: null, ai_classify_status: 'pending' }))
+      setDetail((d) => ({ ...d, entry_type: null, domain: null, main_topic: null,
+        related_topics: null, tags: null, ai_classify_status: 'pending' }))
     } finally { setClassifying(false) }
   }
   function readTextSelection() {
@@ -132,11 +133,13 @@ export default function ReviewSession() {
       </button>
       <FacetGroup title="类型" field="entry_type" values={ENTRY_TYPES} counts={facets.entry_types} onPick={pickCategory} />
       <FacetGroup title="领域" field="domain" values={DOMAINS} counts={facets.domains} onPick={pickCategory} />
-      <FacetGroup title="用途" field="use_tag" values={USE_TAGS} counts={facets.uses} onPick={pickCategory} />
+      {Object.entries(TOPICS_BY_DOMAIN).map(([domain, topics]) => <FacetGroup key={domain}
+        title={`${domain} · 主主题`} field="main_topic" values={topics}
+        counts={facets.main_topics} onPick={pickCategory} />)}
       <FacetGroup title="来源" field="source" values={SOURCES} counts={facets.sources} onPick={pickCategory} />
-      <FacetGroup title="关注标签" field="topic"
-        values={Array.from(new Set([...FOCUS_TOPICS, ...Object.keys(facets.topics || {}).filter((x) => facets.topics[x] > 0)]))}
-        counts={facets.topics} onPick={pickCategory} />
+      <FacetGroup title="常用标签" field="tag"
+        values={Object.entries(facets.tags || {}).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([name]) => name)}
+        counts={facets.tags} onPick={pickCategory} />
     </div> : <>
       {batch && filterKey && <button className="review-filter" onClick={() => load({})}>
         {FILTER_LABEL[filterKey]}：{filter[filterKey]} ×
@@ -170,9 +173,11 @@ export default function ReviewSession() {
               </div>}
               {aiError && <div className="banner-error">{aiError}</div>}
             </div>
-            {detail.topics?.length > 0 && <div className="class-topics">{detail.topics.map((t) => <span key={t}>#{t}</span>)}</div>}
+            {detail.related_topics?.length > 0 && <div className="class-related">相关：{detail.related_topics.join(' / ')}</div>}
+            {(detail.tags || detail.topics)?.length > 0 && <div className="class-topics">
+              {(detail.tags || detail.topics).map((t) => <span key={t}>#{t}</span>)}</div>}
             <div className="review-class-row"><div className="class-summary">
-              {[detail.entry_type, detail.domain, detail.use_tag, '截图'].filter(Boolean).join(' · ') || '未分类'}
+              {[detail.entry_type, detail.domain, detail.main_topic, detail.source || '截图'].filter(Boolean).join(' · ') || '未分类'}
             </div><button onClick={reclassify} disabled={classifying || detail.ai_classify_status === 'pending'}>
               {classifying || detail.ai_classify_status === 'pending' ? '分类中…' : '重新分类'}
             </button></div>

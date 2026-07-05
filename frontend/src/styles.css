@@ -465,6 +465,7 @@ input { font-family: inherit; font-size: 17px; }
 .class-guide-body p { margin: 2px 0; }
 .class-meta { margin-top: 10px; font-size: 12px; color: var(--muted, #68706b); }
 .class-topics { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 7px; align-items: center; color: var(--accent, #356859); }
+.class-related { margin-top: 7px; color: var(--ink-2); font-size: 12px; }
 .class-meta-foot { display: flex; align-items: center; gap: 10px; margin-top: 8px; min-width: 0; }
 .class-summary { flex: 1; min-width: 0; color: var(--ink-2); line-height: 1.4; }
 .class-actions { display: flex; flex-shrink: 0; align-items: center; gap: 10px; }

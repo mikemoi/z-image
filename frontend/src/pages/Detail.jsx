@@ -5,10 +5,14 @@ import Img from '../components/Img'
 import Icon from '../components/Icon'
 import HighlightText from '../components/HighlightText'
 import HighlightControls from '../components/HighlightControls'
+import { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN, ALL_TOPICS } from '../classification'
 
-const THEMES = ['trading', 'ai', 'adhd', 'language', 'life', 'other']
-const THEME_LABEL = { trading: '交易', ai: 'AI', adhd: 'ADHD', language: '语言', life: '生活', other: '其他' }
-const USES = ['方法', '避坑', '心态', '工具', '灵感']
+function asDraft(item) {
+  return { ...item, tags_text: (item.tags || item.topics || []).join('，') }
+}
+function splitTags(value) {
+  return Array.from(new Set((value || '').split(/[,，\n]/).map((v) => v.trim()).filter(Boolean))).slice(0, 5)
+}
 
 export default function Detail() {
   const { id } = useParams()
@@ -27,7 +31,7 @@ export default function Detail() {
 
   useEffect(() => {
     setInsight(null)
-    api.getItem(id).then((it) => { setItem(it); setDraft(it) }).catch(() => setItem(false))
+    api.getItem(id).then((it) => { setItem(it); setDraft(asDraft(it)) }).catch(() => setItem(false))
   }, [id])
 
   async function ask(refresh = false) {
@@ -43,7 +47,7 @@ export default function Detail() {
   }
   async function adoptTheme(theme) {
     const updated = await api.adoptTheme(item.id, theme)
-    setItem(updated); setDraft(updated)
+    setItem(updated); setDraft(asDraft(updated))
     setInsight({ ...insight, suggested_theme: null, suggested_theme_reason: null })
     setMsg(`已归入「${theme}」✓`)
   }
@@ -52,9 +56,14 @@ export default function Detail() {
   if (!item) return <div className="page"><div className="empty-hint">加载中…</div></div>
 
   async function saveTags() {
-    const patch = { title: draft.title, theme: draft.theme, use_tag: draft.use_tag }
+    const patch = {
+      title: draft.title, entry_type: draft.entry_type || null, domain: draft.domain || null,
+      main_topic: draft.main_topic || null,
+      related_topics: (draft.related_topics || []).filter((v) => v && v !== draft.main_topic).slice(0, 2),
+      tags: splitTags(draft.tags_text),
+    }
     const updated = await api.updateItem(item.id, patch)
-    setItem(updated); setDraft(updated); setEditing(false)
+    setItem(updated); setDraft(asDraft(updated)); setEditing(false)
   }
   async function del() {
     await api.deleteItem(item.id)
@@ -62,12 +71,13 @@ export default function Detail() {
   }
   async function saveHighlights() {
     const updated = await api.updateItem(item.id, { highlights: markDraft })
-    setItem(updated); setDraft(updated); setMarking(false)
+    setItem(updated); setDraft(asDraft(updated)); setMarking(false)
   }
   async function reclassify() {
     await api.reclassifyItem(item.id)
-    const pending = { ...item, entry_type: null, domain: null, use_tag: null, topics: null, ai_classify_status: 'pending' }
-    setItem(pending); setDraft(pending); setMsg('正在重新分类…')
+    const pending = { ...item, entry_type: null, domain: null, main_topic: null,
+      related_topics: null, tags: null, ai_classify_status: 'pending' }
+    setItem(pending); setDraft(asDraft(pending)); setMsg('正在重新分类…')
   }
   async function saveIdea() {
     if (!idea.trim()) return
@@ -125,13 +135,14 @@ export default function Detail() {
       <div className="detail-tags">
         {item.entry_type && <span className="tag tag-gran">{item.entry_type}</span>}
         {item.domain && <span className="tag tag-theme">{item.domain}</span>}
-        {item.use_tag && <span className="tag tag-use">{item.use_tag}</span>}
+        {item.main_topic && <span className="tag tag-use">{item.main_topic}</span>}
         {item.ai_classify_status == null && item.status === 'ok' && <span className="tag tag-review">AI 分类中</span>}
         {item.status === 'review' && <span className="tag tag-review">待处理</span>}
       </div>
-      {Array.isArray(item.topics) && item.topics.length > 0 && (
+      {item.related_topics?.length > 0 && <div className="class-related">相关：{item.related_topics.join(' / ')}</div>}
+      {(item.tags || item.topics)?.length > 0 && (
         <div className="class-topics" style={{ margin: '0 2px 8px' }}>
-          {item.topics.map((t) => <span key={t}>#{t}</span>)}
+          {(item.tags || item.topics).map((t) => <span key={t}>#{t}</span>)}
         </div>
       )}
 
@@ -166,18 +177,27 @@ export default function Detail() {
         <div className="edit-box">
           <label>标题</label>
           <input value={draft.title || ''} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
-          <label>主题</label>
-          <div className="chips">
-            {THEMES.map((t) => (
-              <button key={t} className={`chip ${draft.theme === t ? 'chip-on' : ''}`} onClick={() => setDraft({ ...draft, theme: t })}>{THEME_LABEL[t]}</button>
-            ))}
-          </div>
-          <label>用途</label>
-          <div className="chips">
-            {USES.map((u) => (
-              <button key={u} className={`chip ${draft.use_tag === u ? 'chip-on' : ''}`} onClick={() => setDraft({ ...draft, use_tag: u })}>{u}</button>
-            ))}
-          </div>
+          <label>类型</label><select value={draft.entry_type || ''} onChange={(e) => setDraft({ ...draft, entry_type: e.target.value })}>
+            <option value="">未分类</option>{ENTRY_TYPES.map((v) => <option key={v}>{v}</option>)}
+          </select>
+          <label>领域</label><select value={draft.domain || ''} onChange={(e) => {
+            const domain = e.target.value
+            setDraft({ ...draft, domain, main_topic: (TOPICS_BY_DOMAIN[domain] || []).includes(draft.main_topic) ? draft.main_topic : '' })
+          }}><option value="">未分类</option>{DOMAINS.map((v) => <option key={v}>{v}</option>)}</select>
+          <label>主主题</label><select value={draft.main_topic || ''} disabled={!draft.domain}
+            onChange={(e) => setDraft({ ...draft, main_topic: e.target.value })}>
+            <option value="">未分类</option>{(TOPICS_BY_DOMAIN[draft.domain] || []).map((v) => <option key={v}>{v}</option>)}
+          </select>
+          <label>相关主题</label>
+          <div className="entry-editor-grid related-selects">{[0, 1].map((index) => <select key={index}
+            value={draft.related_topics?.[index] || ''} onChange={(e) => {
+              const next = [...(draft.related_topics || [])]
+              if (e.target.value) next[index] = e.target.value
+              else next.splice(index, 1)
+              setDraft({ ...draft, related_topics: Array.from(new Set(next.filter(Boolean))).slice(0, 2) })
+            }}><option value="">无</option>{ALL_TOPICS.filter((v) => v !== draft.main_topic).map((v) => <option key={v}>{v}</option>)}</select>)}</div>
+          <label>标签</label><input value={draft.tags_text || ''}
+            onChange={(e) => setDraft({ ...draft, tags_text: e.target.value })} placeholder="最多 5 个，用逗号分隔" />
           <button className="btn-primary" onClick={saveTags}>保存</button>
         </div>
       )}
