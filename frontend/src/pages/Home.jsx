@@ -5,13 +5,9 @@ import Img from '../components/Img'
 import Icon from '../components/Icon'
 
 const USES = ['避坑', '心态', '方法', '工具', '灵感']
-const THEMES = [
-  { key: 'trading', label: '交易' },
-  { key: 'ai', label: 'AI' },
-  { key: 'adhd', label: 'ADHD' },
-  { key: 'language', label: '语言' },
-  { key: 'life', label: '生活' },
-]
+// 固定六类的中文名;生长出来的新分类没映射就直接显示原名
+const THEME_LABEL = { trading: '交易', ai: 'AI', adhd: 'ADHD', language: '语言', life: '生活', other: '其他' }
+const FIXED_THEMES = ['trading', 'ai', 'adhd', 'language', 'life']
 
 export default function Home() {
   const nav = useNavigate()
@@ -141,12 +137,14 @@ export default function Home() {
       <section>
         <h2 className="section-h">主题</h2>
         <div className="dim-grid">
-          {THEMES.map((t) => (
-            <button key={t.key} className="dim-btn dim-theme" onClick={() => nav(`/browse?theme=${t.key}`)}>
-              <span className="dim-name">{t.label}</span>
-              <span className="dim-count">{stats.themes[t.key] || 0}</span>
-            </button>
-          ))}
+          {Array.from(new Set([...FIXED_THEMES, ...Object.keys(stats.themes || {})]))
+            .filter((k) => k !== 'other' && (FIXED_THEMES.includes(k) || (stats.themes?.[k] || 0) > 0))
+            .map((k) => (
+              <button key={k} className="dim-btn dim-theme" onClick={() => nav(`/browse?theme=${encodeURIComponent(k)}`)}>
+                <span className="dim-name">{THEME_LABEL[k] || k}</span>
+                <span className="dim-count">{stats.themes?.[k] || 0}</span>
+              </button>
+            ))}
         </div>
       </section>
     </div>

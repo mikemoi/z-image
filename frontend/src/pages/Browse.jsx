@@ -4,13 +4,8 @@ import { api } from '../api'
 import ItemCard from '../components/ItemCard'
 
 const USES = ['避坑', '心态', '方法', '工具', '灵感']
-const THEMES = [
-  { key: 'trading', label: '交易' },
-  { key: 'ai', label: 'AI' },
-  { key: 'adhd', label: 'ADHD' },
-  { key: 'language', label: '语言' },
-  { key: 'life', label: '生活' },
-]
+const THEME_LABEL = { trading: '交易', ai: 'AI', adhd: 'ADHD', language: '语言', life: '生活', other: '其他' }
+const FIXED_THEMES = ['trading', 'ai', 'adhd', 'language', 'life']
 
 // 双维度可叠加筛选。q 为客户端标题/摘要过滤(全文检索留到第五步)。
 export default function Browse() {
@@ -24,6 +19,9 @@ export default function Browse() {
   const [loading, setLoading] = useState(true)
   const [candidate, setCandidate] = useState(null)
   const [growMsg, setGrowMsg] = useState('')
+  const [themeStats, setThemeStats] = useState({})
+
+  useEffect(() => { api.dimensions().then((d) => setThemeStats(d.themes || {})).catch(() => {}) }, [growMsg])
 
   function load() {
     setLoading(true)
@@ -64,7 +62,7 @@ export default function Browse() {
   }
 
   async function del(item) {
-    await api.softDelete(item.id)
+    await api.deleteItem(item.id)
     setItems((xs) => xs.filter((x) => x.id !== item.id))
   }
 
@@ -100,9 +98,11 @@ export default function Browse() {
         ))}
       </div>
       <div className="chips">
-        {THEMES.map((t) => (
-          <button key={t.key} className={`chip ${theme === t.key ? 'chip-on' : ''}`} onClick={() => toggle('theme', t.key)}>{t.label}</button>
-        ))}
+        {Array.from(new Set([...FIXED_THEMES, ...Object.keys(themeStats)]))
+          .filter((k) => k !== 'other' && (FIXED_THEMES.includes(k) || (themeStats[k] || 0) > 0))
+          .map((k) => (
+            <button key={k} className={`chip ${theme === k ? 'chip-on' : ''}`} onClick={() => toggle('theme', k)}>{THEME_LABEL[k] || k}</button>
+          ))}
       </div>
 
       {loading ? (
