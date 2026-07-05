@@ -70,6 +70,7 @@ export const api = {
     return req(`/items/review-queue?${q.toString()}`)
   },
   reviewFacets: () => req('/items/review-facets'),
+  reclassifyItem: (id) => req(`/items/${id}/reclassify`, { method: 'POST' }),
   recommendations: (limit = 10) => req(`/items/recommendations?limit=${limit}`),
 
   uploadItems: (files) => {

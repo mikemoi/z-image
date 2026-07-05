@@ -18,8 +18,9 @@
 | GET | `` | `status/theme/use/granularity/promoted/deleted/limit/offset` 筛选 |
 | GET | `/{id}` | 详情，含原图 checksum、OCR 与统一分类字段 |
 | PATCH | `/{id}` | 修改 title/theme/use_tag/status/granularity/entry_type/domain/topics；人工改分类会锁定 AI 状态 |
-| GET | `/review-queue?limit=10` | 集中批阅队列；支持 `entry_type/domain/use_tag` 分类筛选 |
-| GET | `/review-facets` | 集中批阅未阅内容的类型、领域、用途计数 |
+| GET | `/review-queue?limit=10` | 集中批阅队列；支持 `entry_type/domain/use_tag/topic/source` 分类筛选 |
+| GET | `/review-facets` | 集中批阅未阅内容的类型、领域、用途、来源、标签计数 |
+| POST | `/{id}/reclassify` | 只重跑统一分类，不重跑 OCR，保留人工重点 |
 | GET | `/recommendations?limit=10` | 今日推荐队列；优先返回较久未看的截图 |
 | POST | `/{id}/process` | 同步跑 Vision，调试用，会真实调用 AI |
 | POST | `/{id}/reprocess` | 清 Vision 结果并回到 review |

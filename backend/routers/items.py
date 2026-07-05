@@ -372,20 +372,27 @@ async def to_note(item_id: int):
     return NoteResult(note_id=note_id)
 
 
-def _review_filter_sql(entry_type: str | None, domain: str | None, use_tag: str | None):
+def _review_filter_sql(entry_type: str | None, domain: str | None, use_tag: str | None,
+                       topic: str | None, source: str | None):
     clauses: list[str] = []
-    params: list[str] = []
+    params: list = []
     for column, value in (("i.entry_type", entry_type), ("i.domain", domain), ("i.use_tag", use_tag)):
         if value:
             clauses.append(f"{column}=%s")
             params.append(value)
+    if topic:
+        clauses.append("i.topics @> %s")
+        params.append(Jsonb([topic]))
+    if source and source != "截图":
+        clauses.append("false")
     return clauses, params
 
 
 def _reading_queue(where: str, limit: int, order: str,
                    entry_type: str | None = None, domain: str | None = None,
-                   use_tag: str | None = None) -> ItemList:
-    filters, params = _review_filter_sql(entry_type, domain, use_tag)
+                   use_tag: str | None = None, topic: str | None = None,
+                   source: str | None = None) -> ItemList:
+    filters, params = _review_filter_sql(entry_type, domain, use_tag, topic, source)
     extra = "".join(f" AND {clause}" for clause in filters)
     with get_conn() as conn:
         rows = conn.execute(
@@ -408,10 +415,12 @@ async def review_queue(
     entry_type: str | None = Query(default=None),
     domain: str | None = Query(default=None),
     use_tag: str | None = Query(default=None),
+    topic: str | None = Query(default=None),
+    source: str | None = Query(default=None),
 ):
     """集中批阅:只取尚未人工看过的内容,每组默认 10 条。"""
     return _reading_queue("i.reviewed_at IS NULL", limit, "i.created_at ASC",
-                          entry_type, domain, use_tag)
+                          entry_type, domain, use_tag, topic, source)
 
 
 @router.get("/review-facets")
@@ -431,13 +440,40 @@ async def review_facets():
                     GROUP BY i.{column}"""
             ).fetchall()
             result[key] = {row["value"]: row["c"] for row in rows}
-    return {"total": total, **result}
+        topics = conn.execute(
+            """SELECT topic.value, count(DISTINCT i.id) AS c
+               FROM image.items i
+               CROSS JOIN LATERAL jsonb_array_elements_text(
+                   COALESCE(i.topics, '[]'::jsonb)
+               ) AS topic(value)
+               WHERE i.deleted_at IS NULL AND i.status='ok' AND i.reviewed_at IS NULL
+               GROUP BY topic.value"""
+        ).fetchall()
+        result["topics"] = {row["value"]: row["c"] for row in topics}
+    return {"total": total, "sources": {"截图": total}, **result}
 
 
 @router.get("/recommendations", response_model=ItemList)
 async def recommendations(limit: int = Query(default=10, ge=1, le=20)):
     """今日推荐:优先最久没看/从未看过的内容。"""
     return _reading_queue("true", limit, "i.reviewed_at ASC NULLS FIRST, i.created_at ASC")
+
+
+@router.post("/{item_id}/reclassify", response_model=OkResult)
+async def reclassify_item(item_id: int):
+    """只重跑统一分类，不重跑 OCR；保留人工重点。"""
+    with get_conn() as conn:
+        row = conn.execute(
+            """UPDATE image.items
+               SET entry_type=NULL, domain=NULL, use_tag=NULL, topics=NULL,
+                   ai_classify_status='pending', ai_classified_at=NULL, updated_at=now()
+               WHERE id=%s AND deleted_at IS NULL RETURNING id""",
+            (item_id,),
+        ).fetchone()
+        conn.commit()
+    if not row:
+        raise HTTPException(404, "item not found")
+    return OkResult()
 
 
 @router.get("", response_model=ItemList)

@@ -4,14 +4,17 @@ import { api } from '../api'
 import { ENTRY_TYPES, DOMAINS, USE_TAGS } from '../classification'
 import Img from '../components/Img'
 import HighlightText from '../components/HighlightText'
+import Icon from '../components/Icon'
 
-const FILTER_LABEL = { entry_type: '类型', domain: '领域', use_tag: '用途' }
+const FILTER_LABEL = { entry_type: '类型', domain: '领域', use_tag: '用途', topic: '标签', source: '来源' }
+const SOURCES = ['自己', '截图', '文件']
+const FOCUS_TOPICS = ['ADHD', '交易', '西班牙语', '马德里', '运动', '情绪', '药物', '睡眠']
 
 function FacetGroup({ title, field, values, counts, onPick }) {
   return <section className="review-facet-section">
     <h2 className="section-h">{title}</h2>
     <div className="review-facet-grid">{values.map((value) =>
-      <button key={value} className="review-facet" onClick={() => onPick(field, value)}>
+      <button key={value} className="review-facet" disabled={!counts?.[value]} onClick={() => onPick(field, value)}>
         <span>{value}</span><b>{counts?.[value] || 0}</b>
       </button>)}</div>
   </section>
@@ -23,11 +26,15 @@ export default function ReviewSession() {
   const batch = sp.get('mode') === 'batch'
   const [view, setView] = useState('continuous')
   const [filter, setFilter] = useState({})
-  const [facets, setFacets] = useState({ total: 0, entry_types: {}, domains: {}, uses: {} })
+  const [facets, setFacets] = useState({ total: 0, entry_types: {}, domains: {}, uses: {}, sources: {}, topics: {} })
   const [items, setItems] = useState([])
   const [index, setIndex] = useState(0)
   const [detail, setDetail] = useState(null)
   const [idea, setIdea] = useState('')
+  const [insight, setInsight] = useState(null)
+  const [asking, setAsking] = useState(false)
+  const [aiError, setAiError] = useState('')
+  const [classifying, setClassifying] = useState(false)
   const [loading, setLoading] = useState(true)
 
   function load(nextFilter = filter) {
@@ -42,7 +49,8 @@ export default function ReviewSession() {
   useEffect(() => {
     const current = items[index]
     if (!current) { setDetail(null); return }
-    setDetail(null); api.getItem(current.id).then(setDetail).catch(() => setDetail(false))
+    setDetail(null); setInsight(null); setAsking(false); setAiError(''); setClassifying(false)
+    api.getItem(current.id).then(setDetail).catch(() => setDetail(false))
   }, [items, index])
 
   function pickCategory(field, value) {
@@ -62,6 +70,21 @@ export default function ReviewSession() {
     await api.deleteItem(detail.id)
     setItems((xs) => xs.filter((x) => x.id !== detail.id))
     setIndex((i) => Math.min(i, Math.max(0, items.length - 2)))
+  }
+  async function ask(refresh = false) {
+    if (!detail) return
+    setAsking(true); setAiError('')
+    try { setInsight(await api.insight(detail.id, refresh)) }
+    catch { setAiError('AI 调用失败，稍后再试') }
+    finally { setAsking(false) }
+  }
+  async function reclassify() {
+    if (!detail || classifying) return
+    setClassifying(true)
+    try {
+      await api.reclassifyItem(detail.id)
+      setDetail((d) => ({ ...d, entry_type: null, domain: null, use_tag: null, topics: null, ai_classify_status: 'pending' }))
+    } finally { setClassifying(false) }
   }
 
   const filterKey = Object.keys(filter)[0]
@@ -83,6 +106,10 @@ export default function ReviewSession() {
       <FacetGroup title="类型" field="entry_type" values={ENTRY_TYPES} counts={facets.entry_types} onPick={pickCategory} />
       <FacetGroup title="领域" field="domain" values={DOMAINS} counts={facets.domains} onPick={pickCategory} />
       <FacetGroup title="用途" field="use_tag" values={USE_TAGS} counts={facets.uses} onPick={pickCategory} />
+      <FacetGroup title="来源" field="source" values={SOURCES} counts={facets.sources} onPick={pickCategory} />
+      <FacetGroup title="关注标签" field="topic"
+        values={Array.from(new Set([...FOCUS_TOPICS, ...Object.keys(facets.topics || {}).filter((x) => facets.topics[x] > 0)]))}
+        counts={facets.topics} onPick={pickCategory} />
     </div> : <>
       {batch && filterKey && <button className="review-filter" onClick={() => load({})}>
         {FILTER_LABEL[filterKey]}：{filter[filterKey]} ×
@@ -98,13 +125,27 @@ export default function ReviewSession() {
             {detail.summary && <p className="review-summary">{detail.summary}</p>}
             {(detail.clean_text || detail.raw_text) && <HighlightText
               text={detail.clean_text || detail.raw_text} highlights={detail.highlights} className="review-text" />}
+            <div className="review-ai">
+              {!insight ? <button className="ai-ask" onClick={() => ask(false)} disabled={asking}>
+                {asking ? '正在想…' : <><Icon name="spark" size={18} className="ai-ask-ico" />问问 AI</>}
+              </button> : <div className="ai-card">
+                <div className="ai-head"><span className="ai-badge">AI 补充</span>
+                  <span className="ai-note">AI 的看法,可能有错,别当原文</span></div>
+                <div className="ai-text">{insight.explanation}</div>
+                <button className="ai-again" onClick={() => ask(true)} disabled={asking}>{asking ? '…' : '重新问'}</button>
+              </div>}
+              {aiError && <div className="banner-error">{aiError}</div>}
+            </div>
             {detail.topics?.length > 0 && <div className="class-topics">{detail.topics.map((t) => <span key={t}>#{t}</span>)}</div>}
-            <div className="class-summary">{[detail.entry_type, detail.domain, detail.use_tag, '截图'].filter(Boolean).join(' · ')}</div>
+            <div className="review-class-row"><div className="class-summary">
+              {[detail.entry_type, detail.domain, detail.use_tag, '截图'].filter(Boolean).join(' · ') || '未分类'}
+            </div><button onClick={reclassify} disabled={classifying || detail.ai_classify_status === 'pending'}>
+              {classifying || detail.ai_classify_status === 'pending' ? '分类中…' : '重新分类'}
+            </button></div>
           </div>
           <textarea className="capture-input" rows={2} value={idea} onChange={(e) => setIdea(e.target.value)} placeholder="写想法" />
           <div className="review-actions">
             <button className="mini" onClick={() => setIndex((i) => Math.max(0, i - 1))} disabled={index === 0}>上一张</button>
-            <button className="mini" onClick={() => nav(`/item/${detail.id}`)}>编辑</button>
             <button className="mini mini-danger" onClick={remove}>删除</button>
             {idea.trim() ? <button className="mini entry-save" onClick={saveIdea}>保存并下一张</button> :
               <button className="mini entry-save" onClick={next}>下一张</button>}

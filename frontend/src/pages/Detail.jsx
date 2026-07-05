@@ -64,31 +64,16 @@ export default function Detail() {
     const updated = await api.updateItem(item.id, { highlights: markDraft })
     setItem(updated); setDraft(updated); setMarking(false)
   }
-  async function keep() {   // 留下:留档,标记已处理
-    await api.review(item.id)
-    const fresh = await api.getItem(item.id)
-    setItem(fresh); setDraft(fresh)
-    setMsg('已留下 ✓')
-  }
-  async function pick() {   // 精选:入脑
-    try {
-      if (item.granularity === 'fragment') await api.toNote(item.id)
-      else await api.promote(item.id)
-      const fresh = await api.getItem(item.id)
-      setItem(fresh); setDraft(fresh)
-      setMsg('已精选 ✓')
-    } catch { setMsg('操作失败') }
+  async function reclassify() {
+    await api.reclassifyItem(item.id)
+    const pending = { ...item, entry_type: null, domain: null, use_tag: null, topics: null, ai_classify_status: 'pending' }
+    setItem(pending); setDraft(pending); setMsg('正在重新分类…')
   }
   async function saveIdea() {
     if (!idea.trim()) return
     await api.createEntry({ kind: 'idea', body: idea.trim(), source_item_id: item.id })
     setIdea(''); setMsg('想法记下了 ✓'); setTimeout(() => setMsg(''), 1800)
   }
-
-  const reviewed = !!item.reviewed_at
-  const digested = !!item.promoted_at
-  const isFragment = item.granularity === 'fragment'
-  const isAsset = item.granularity === 'asset'
 
   return (
     <div className="page detail-page">
@@ -208,13 +193,15 @@ export default function Detail() {
 
       {msg && <div className="detail-msg">{msg}</div>}
 
-      {/* 底部操作:标签 / 精选 / 删除(不删即留下) */}
+      {/* 人工操作与 AI 重分类分开；精选入口已取消。 */}
       <div className="detail-actions">
         <button className="act" onClick={() => setEditing((v) => !v)}>{editing ? '取消' : '标签'}</button>
         {(item.clean_text || item.raw_text) && <button className="act" onClick={() => {
           setMarkDraft(Array.isArray(item.highlights) ? item.highlights : []); setMarking((v) => !v)
         }}>{marking ? '取消重点' : '标重点'}</button>}
-        {!isAsset && <button className="act act-primary" onClick={pick} disabled={digested}>{digested ? '已精选' : '精选'}</button>}
+        <button className="act" onClick={reclassify} disabled={item.ai_classify_status === 'pending'}>
+          {item.ai_classify_status === 'pending' ? '分类中…' : '重新分类'}
+        </button>
         <button className="act act-danger" onClick={del}>删除</button>
       </div>
 

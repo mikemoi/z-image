@@ -238,11 +238,12 @@ async def classify_item(item_id: int, text: str) -> bool:
                 """UPDATE image.items
                    SET entry_type = COALESCE(entry_type, %s),
                        domain     = COALESCE(domain, %s),
+                       use_tag    = COALESCE(use_tag, %s),
                        topics     = COALESCE(topics, %s),
                        highlights = COALESCE(highlights, %s),
                        ai_classify_status='done', ai_classified_at=now(), updated_at=now()
                    WHERE id=%s""",
-                (r["entry_type"], r["domain"],
+                (r["entry_type"], r["domain"], r["use_tag"],
                  Jsonb(r["topics"]) if r["topics"] else None,
                  Jsonb(r["highlights"]) if r["highlights"] else None, item_id),
             )
