@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { ENTRY_TYPES, DOMAINS, USE_TAGS } from '../classification'
@@ -35,6 +35,8 @@ export default function ReviewSession() {
   const [asking, setAsking] = useState(false)
   const [aiError, setAiError] = useState('')
   const [classifying, setClassifying] = useState(false)
+  const [selectedQuote, setSelectedQuote] = useState('')
+  const reviewTextRef = useRef(null)
   const [loading, setLoading] = useState(true)
 
   function load(nextFilter = filter) {
@@ -49,7 +51,7 @@ export default function ReviewSession() {
   useEffect(() => {
     const current = items[index]
     if (!current) { setDetail(null); return }
-    setDetail(null); setInsight(null); setAsking(false); setAiError(''); setClassifying(false)
+    setDetail(null); setInsight(null); setAsking(false); setAiError(''); setClassifying(false); setSelectedQuote('')
     api.getItem(current.id).then(setDetail).catch(() => setDetail(false))
   }, [items, index])
 
@@ -85,6 +87,24 @@ export default function ReviewSession() {
       await api.reclassifyItem(detail.id)
       setDetail((d) => ({ ...d, entry_type: null, domain: null, use_tag: null, topics: null, ai_classify_status: 'pending' }))
     } finally { setClassifying(false) }
+  }
+  function rememberTextSelection() {
+    setTimeout(() => {
+      const selection = window.getSelection()
+      const box = reviewTextRef.current
+      if (!selection || !box || selection.rangeCount === 0) return
+      if (!box.contains(selection.anchorNode) || !box.contains(selection.focusNode)) return
+      const quote = selection.toString().trim()
+      setSelectedQuote(quote.length >= 2 ? quote : '')
+    }, 0)
+  }
+  async function saveHighlight() {
+    if (!detail || !selectedQuote) return
+    const current = Array.isArray(detail.highlights) ? detail.highlights : []
+    if (current.includes(selectedQuote)) return
+    const updated = await api.updateItem(detail.id, { highlights: [...current, selectedQuote].slice(0, 10) })
+    setDetail(updated); setSelectedQuote('')
+    window.getSelection()?.removeAllRanges()
   }
 
   const filterKey = Object.keys(filter)[0]
@@ -123,8 +143,14 @@ export default function ReviewSession() {
             <Img checksum={detail.checksum} className="review-image" />
             {detail.title && <h2>{detail.title}</h2>}
             {detail.summary && <p className="review-summary">{detail.summary}</p>}
-            {(detail.clean_text || detail.raw_text) && <HighlightText
-              text={detail.clean_text || detail.raw_text} highlights={detail.highlights} className="review-text" />}
+            {(detail.clean_text || detail.raw_text) && <>
+              <div ref={reviewTextRef} onMouseUp={rememberTextSelection} onTouchEnd={rememberTextSelection}>
+                <HighlightText text={detail.clean_text || detail.raw_text}
+                  highlights={detail.highlights} className="review-text" />
+              </div>
+              <button className="review-highlight" onClick={saveHighlight}
+                disabled={!selectedQuote || detail.highlights?.includes(selectedQuote)}>标重点</button>
+            </>}
             <div className="review-ai">
               {!insight ? <button className="ai-ask" onClick={() => ask(false)} disabled={asking}>
                 {asking ? '正在想…' : <><Icon name="spark" size={18} className="ai-ask-ico" />问问 AI</>}
