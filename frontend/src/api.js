@@ -70,6 +70,7 @@ export const api = {
   },
 
   dimensions: () => req('/stats/dimensions'),
+  overview: () => req('/stats/overview'),
   workerStatus: () => req('/worker/status'),
 
   // 消化闭环

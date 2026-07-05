@@ -12,6 +12,7 @@ import Ideas from './pages/Ideas'
 import Me from './pages/Me'
 import Settings from './pages/Settings'
 import Plans from './pages/Plans'
+import Overview from './pages/Overview'
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/me" element={<Me />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/plans" element={<Plans />} />
+            <Route path="/overview" element={<Overview />} />
           </Routes>
         </main>
         <TabBar />

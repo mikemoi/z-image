@@ -4,9 +4,82 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 
 from auth import require_token
 from db import get_conn
-from models.items import DimensionStats, ThemeCandidate, AdoptClusterResult, AdoptTheme
+from models.items import DimensionStats, OverviewStats, ThemeCandidate, AdoptClusterResult, AdoptTheme
 
 router = APIRouter(prefix="/api/stats", tags=["stats"], dependencies=[Depends(require_token)])
+
+
+def _dict(rows: list[dict], key: str = "name") -> dict[str, int]:
+    return {r[key]: r["c"] for r in rows if r[key]}
+
+
+@router.get("/overview", response_model=OverviewStats)
+async def overview():
+    """统一统计截图与文字条目。只描述内容构成，不计算 streak、完成率或趋势。"""
+    with get_conn() as conn:
+        screenshots = conn.execute(
+            "SELECT count(*) AS c FROM image.items WHERE deleted_at IS NULL"
+        ).fetchone()["c"]
+        kind_rows = conn.execute(
+            """SELECT kind AS name, count(*) AS c FROM core.entries
+               WHERE deleted_at IS NULL GROUP BY kind"""
+        ).fetchall()
+        type_rows = conn.execute(
+            """SELECT entry_type AS name, count(*) AS c FROM (
+                   SELECT entry_type FROM image.items WHERE deleted_at IS NULL
+                   UNION ALL
+                   SELECT entry_type FROM core.entries WHERE deleted_at IS NULL
+               ) x WHERE entry_type IS NOT NULL GROUP BY entry_type ORDER BY c DESC"""
+        ).fetchall()
+        domain_rows = conn.execute(
+            """SELECT domain AS name, count(*) AS c FROM (
+                   SELECT domain FROM image.items WHERE deleted_at IS NULL
+                   UNION ALL
+                   SELECT domain FROM core.entries WHERE deleted_at IS NULL
+               ) x WHERE domain IS NOT NULL GROUP BY domain ORDER BY c DESC"""
+        ).fetchall()
+        use_rows = conn.execute(
+            """SELECT use_tag AS name, count(*) AS c FROM (
+                   SELECT use_tag FROM image.items WHERE deleted_at IS NULL
+                   UNION ALL
+                   SELECT use_tag FROM core.entries WHERE deleted_at IS NULL
+               ) x WHERE use_tag IS NOT NULL GROUP BY use_tag ORDER BY c DESC"""
+        ).fetchall()
+        source_rows = conn.execute(
+            """SELECT source AS name, count(*) AS c FROM core.entries
+               WHERE deleted_at IS NULL AND source IS NOT NULL GROUP BY source"""
+        ).fetchall()
+        status_rows = conn.execute(
+            """SELECT state AS name, count(*) AS c FROM (
+                   SELECT CASE WHEN ai_classify_status = 'failed' THEN '分类失败'
+                               WHEN ai_classify_status = 'done' THEN '已分类'
+                               ELSE '待分类' END AS state
+                   FROM image.items WHERE deleted_at IS NULL
+                   UNION ALL
+                   SELECT CASE WHEN ai_classify_status = 'failed' THEN '分类失败'
+                               WHEN ai_classify_status = 'done' THEN '已分类'
+                               ELSE '待分类' END AS state
+                   FROM core.entries WHERE deleted_at IS NULL
+               ) x GROUP BY state"""
+        ).fetchall()
+
+    kinds = _dict(kind_rows)
+    contents = {
+        "截图": screenshots,
+        "想法": kinds.get("idea", 0),
+        "日志": kinds.get("log", 0),
+        "长期计划": kinds.get("plan", 0),
+    }
+    if kinds.get("memo", 0):
+        contents["近日"] = kinds["memo"]
+    sources = _dict(source_rows)
+    sources["截图"] = sources.get("截图", 0) + screenshots
+    total = screenshots + sum(kinds.values())
+    return OverviewStats(
+        total=total, contents=contents, entry_types=_dict(type_rows),
+        domains=_dict(domain_rows), uses=_dict(use_rows), sources=sources,
+        classify_statuses=_dict(status_rows),
+    )
 
 
 @router.get("/dimensions", response_model=DimensionStats)

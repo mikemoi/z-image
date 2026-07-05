@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import Img from '../components/Img'
 import ClassificationMeta from '../components/ClassificationMeta'
-import ClassificationGuide from '../components/ClassificationGuide'
 
 // 想法流:看图产生的 + 凭空的。AI 自动分类(类型/领域/用途/标签),可编辑、精选入脑。
 export default function Ideas() {
@@ -44,7 +43,6 @@ export default function Ideas() {
     <div className="page">
       <h1 className="page-title">想法</h1>
       <div className="capture-hint">看到什么、想到什么,写下来。AI 自动归类,你随时改。</div>
-      <ClassificationGuide />
 
       <div className="log-compose">
         <textarea className="capture-input" value={body} rows={3}

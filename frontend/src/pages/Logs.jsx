@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import ClassificationMeta from '../components/ClassificationMeta'
-import ClassificationGuide from '../components/ClassificationGuide'
 
 // 日志:带日期的文字,按天翻。价值在回看——往年今天温柔冒出。绝不 streak、不催写。
 const MOODS = ['😞', '😕', '😐', '🙂', '😄']
@@ -53,7 +52,6 @@ export default function Logs() {
         <button className="text-link" onClick={() => nav('/plans')}>计划 →</button>
       </div>
       <h1 className="page-title">日志</h1>
-      <ClassificationGuide />
 
       {/* 快速记一条 */}
       <div className="log-compose">

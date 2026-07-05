@@ -62,6 +62,17 @@ class DimensionStats(BaseModel):
     uses: dict[str, int]
 
 
+class OverviewStats(BaseModel):
+    """“我的 → 数据概览”使用的统一内容构成。"""
+    total: int
+    contents: dict[str, int]
+    entry_types: dict[str, int]
+    domains: dict[str, int]
+    uses: dict[str, int]
+    sources: dict[str, int]
+    classify_statuses: dict[str, int]
+
+
 class PromoteResult(BaseModel):
     ok: bool = True
     knowledge_ids: list[int]

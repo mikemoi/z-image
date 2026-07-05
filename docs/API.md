@@ -86,6 +86,7 @@ Entry 响应包含：`entry_type/domain/use_tag/source/topics/ai_classify_status
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/stats/dimensions` | 旧 theme/use 维度计数 |
+| GET | `/api/stats/overview` | “我的 → 数据概览”；统一统计内容、类型、领域、用途、来源和分类状态 |
 | GET | `/api/stats/theme-candidates` | 聚合旧 suggested_theme |
 | POST | `/api/stats/theme-candidates/adopt` | 批量采纳旧 theme 候选 |
 | GET | `/api/search?q=` | 搜索截图标题/摘要/OCR 与 Entry 正文 |

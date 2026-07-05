@@ -110,7 +110,7 @@ docker-compose.yml  db(postgres:17)+ backend
 
 ## 5. 前端要点
 
-- **导航 5 tab**:首页 / 上传 / 想法 / 记录(=日志+计划入口)/ 我的(纯入口,内含 AI 设置独立页 `/settings`)。
+- **导航 5 tab**:首页 / 上传 / 想法 / 记录 / 我的。我的包含数据概览、AI 设置、长期计划和分类说明；个人项目不提供退出登录入口。
 - **详情页操作**:标签 / 精选 / 删除(**永久删,无回收站**,"不删即留下")+ 我的想法输入(存成 idea,挂 source_item_id)。
 - **想法页**:记 + AI 自动分类(`ClassificationMeta` 可编辑类型/领域/用途 + 标签增删 + 重新分类)+ 精选入脑。
 - **主题风格**:暖纸底 + 墨青主色 + 线性 SVG 图标(`components/Icon.jsx`),CSS 变量在 `styles.css :root`。

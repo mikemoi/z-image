@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
-import ClassificationGuide from '../components/ClassificationGuide'
 
 // 记一条:零摩擦捕捉。速记/日志/计划/剪藏共用,写完就走。
 const KINDS = [
@@ -41,7 +40,6 @@ export default function Capture() {
   return (
     <div className="page capture-page">
       <h1 className="page-title">记一条</h1>
-      <ClassificationGuide />
 
       <div className="chips">
         {KINDS.map((k) => (

@@ -368,6 +368,22 @@ input { font-family: inherit; font-size: 17px; }
 .me-ico { color: var(--accent); flex-shrink: 0; }
 .me-arrow { margin-left: auto; color: var(--ink-2); font-size: 20px; }
 
+/* ── 数据概览:只呈现构成,不做趋势和完成率 ─────────────────────────── */
+.overview-total {
+  margin: 16px 0 22px; padding: 18px 20px; border-radius: var(--radius);
+  background: var(--surface); box-shadow: var(--shadow);
+  display: flex; align-items: baseline; justify-content: space-between;
+}
+.overview-total span { color: var(--ink-2); }
+.overview-total strong { font-size: 32px; color: var(--accent); }
+.overview-section { margin-bottom: 24px; }
+.overview-row { margin: 10px 2px; }
+.overview-label { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 5px; }
+.overview-label b { color: var(--ink-2); font-weight: 600; }
+.overview-track { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.overview-track span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+.overview-empty { color: var(--ink-2); font-size: 13px; margin: 8px 2px; }
+
 /* ── 统一小按钮:次级(浅底描边)/ 强调(实心) ─────────────────────────── */
 .mini, .grow-no {
   background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
