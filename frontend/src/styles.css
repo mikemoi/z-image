@@ -298,6 +298,7 @@ input { font-family: inherit; font-size: 17px; }
   border-radius: 20px; font-weight: 500; color: var(--theme); background: var(--theme-soft);
 }
 .entry-body { font-size: 16px; line-height: 1.6; white-space: pre-wrap; }
+.entry-time { font-size: 13px; color: var(--ink-2); margin-bottom: 5px; }
 .entry-acts { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
 
 .log-compose { margin-bottom: 20px; }

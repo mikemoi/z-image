@@ -6,6 +6,12 @@ import ClassificationMeta from '../components/ClassificationMeta'
 import EntryEditor from '../components/EntryEditor'
 
 // 想法本身就是一等内容，不再要求二次“精选”。
+function fmtTime(ts) {
+  if (!ts) return ''
+  const dt = new Date(ts)
+  return `${dt.getFullYear()}.${String(dt.getMonth() + 1).padStart(2, '0')}.${String(dt.getDate()).padStart(2, '0')}  ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`
+}
+
 export default function Ideas() {
   const nav = useNavigate()
   const [ideas, setIdeas] = useState([])
@@ -56,6 +62,7 @@ export default function Ideas() {
                 <EntryEditor entry={e} onCancel={() => setEditId(null)} onSaved={saved} />
               ) : (
                 <>
+                  <div className="entry-time">{fmtTime(e.created_at)}</div>
                   <div className="entry-body">{e.body}</div>
                   {e.checksum && (
                     <button className="idea-src" onClick={() => nav(`/item/${e.source_item_id}`)}>
