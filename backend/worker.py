@@ -146,9 +146,89 @@ def _record_failure(item_id: int, msg: str):
         log.error("could not record failure for item %s: %s", item_id, e)
 
 
+# ── 文字条目自动分类(和 Vision 并行,读 body 打 5 维度里的 4 个) ──────────────
+def _fetch_pending_entries(limit: int) -> list[dict]:
+    with get_conn() as conn:
+        return conn.execute(
+            """SELECT id, body FROM core.entries
+               WHERE deleted_at IS NULL
+                 AND (ai_classify_status IS NULL OR ai_classify_status = 'pending')
+               ORDER BY created_at ASC LIMIT %s""",
+            (limit,),
+        ).fetchall()
+
+
+async def classify_entry(entry_id: int, body: str) -> bool:
+    """给一条文字打分类。成功 True(status→done),失败 False(记 failed,可续跑)。"""
+    from classify import call_classify
+    from settings_store import classify_model
+    try:
+        r = await call_classify(body, model=classify_model())
+    except Exception as e:  # noqa: BLE001
+        log.warning("classify failed for entry %s: %s", entry_id, e)
+        _mark_classify_failed(entry_id, str(e))
+        return False
+    try:
+        with get_conn() as conn:
+            conn.execute(
+                """UPDATE core.entries
+                   SET entry_type = COALESCE(entry_type, %s),
+                       domain     = COALESCE(domain, %s),
+                       use_tag    = COALESCE(use_tag, %s),
+                       topics     = COALESCE(topics, %s),
+                       ai_classify_status = 'done', ai_classified_at = now(),
+                       ai_classify_output = %s, updated_at = now()
+                   WHERE id = %s""",
+                (r["entry_type"], r["domain"], r["use_tag"],
+                 Jsonb(r["topics"]) if r["topics"] else None,
+                 Jsonb(r), entry_id),
+            )
+            conn.commit()
+        return True
+    except Exception as e:  # noqa: BLE001
+        log.warning("classify db write failed for entry %s: %s", entry_id, e)
+        _mark_classify_failed(entry_id, f"db: {e}")
+        return False
+
+
+def _mark_classify_failed(entry_id: int, msg: str):
+    try:
+        with get_conn() as conn:
+            conn.execute(
+                """UPDATE core.entries SET ai_classify_status = 'failed',
+                       ai_classify_output = %s, updated_at = now() WHERE id = %s""",
+                (Jsonb({"_error": msg[:500]}), entry_id),
+            )
+            conn.commit()
+    except Exception as e:  # noqa: BLE001
+        log.error("could not record classify failure for entry %s: %s", entry_id, e)
+
+
 # ── 后台循环 ─────────────────────────────────────────────────────────────────
 _task: asyncio.Task | None = None
+_classify_task: asyncio.Task | None = None
 _stop = asyncio.Event()
+
+
+async def _classify_loop():
+    log.info("classify worker started")
+    while not _stop.is_set():
+        try:
+            entries = _fetch_pending_entries(limit=5)
+            did = False
+            for e in entries:
+                if not await _take_budget():
+                    break
+                await classify_entry(e["id"], e["body"])
+                did = True
+        except Exception as e:  # noqa: BLE001
+            log.error("classify cycle error: %s", e)
+            did = False
+        try:
+            await asyncio.wait_for(_stop.wait(), timeout=0.5 if did else WORKER_POLL_SECONDS)
+        except asyncio.TimeoutError:
+            pass
+    log.info("classify worker stopped")
 
 
 async def _loop():
@@ -175,12 +255,14 @@ async def _loop():
 
 
 def start_worker():
-    global _task
+    global _task, _classify_task
     _stop.clear()
     _task = asyncio.create_task(_loop())
+    _classify_task = asyncio.create_task(_classify_loop())
 
 
 async def stop_worker():
     _stop.set()
-    if _task:
-        await _task
+    for t in (_task, _classify_task):
+        if t:
+            await t

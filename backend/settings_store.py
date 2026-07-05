@@ -20,9 +20,14 @@ MODEL_CANDIDATES = {
         "google/gemini-2.5-pro",
         "openai/gpt-4o",
     ],
+    "classify_model": [
+        "openai/gpt-4.1-mini",
+        "openai/gpt-4o-mini",
+        "google/gemini-2.0-flash-001",
+    ],
 }
 
-_DEFAULTS = {"ocr_model": VISION_MODEL, "insight_model": INSIGHT_MODEL}
+_DEFAULTS = {"ocr_model": VISION_MODEL, "insight_model": INSIGHT_MODEL, "classify_model": VISION_MODEL}
 
 
 def get_setting(key: str, default: str | None = None) -> str | None:
@@ -51,5 +56,10 @@ def insight_model() -> str:
     return get_setting("insight_model", _DEFAULTS["insight_model"])
 
 
+def classify_model() -> str:
+    return get_setting("classify_model", _DEFAULTS["classify_model"])
+
+
 def current_models() -> dict:
-    return {"ocr_model": ocr_model(), "insight_model": insight_model()}
+    return {"ocr_model": ocr_model(), "insight_model": insight_model(),
+            "classify_model": classify_model()}

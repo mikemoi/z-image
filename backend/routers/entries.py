@@ -126,6 +126,23 @@ async def promote_idea(entry_id: int):
     return OkResult()
 
 
+@router.post("/{entry_id}/reclassify", response_model=OkResult)
+async def reclassify(entry_id: int):
+    """重新分类:清掉旧 4 维 + 置 pending,让分类 worker 重跑。"""
+    with get_conn() as conn:
+        r = conn.execute(
+            """UPDATE core.entries
+               SET entry_type=NULL, domain=NULL, use_tag=NULL, topics=NULL,
+                   ai_classify_status='pending', updated_at=now()
+               WHERE id=%s AND deleted_at IS NULL RETURNING id""",
+            (entry_id,),
+        ).fetchone()
+        conn.commit()
+    if not r:
+        raise HTTPException(404, "entry not found")
+    return OkResult()
+
+
 @router.get("", response_model=list[Entry])
 async def list_entries(
     kind: str | None = Query(default=None),
@@ -230,6 +247,9 @@ async def update_entry(entry_id: int, patch: EntryUpdate):
         raise HTTPException(400, "no fields to update")
     if "topics" in fields and fields["topics"] is not None:
         fields["topics"] = Jsonb(fields["topics"])
+    # 人工改了任一分类维度 → 标 done,自动分类 worker 不再覆盖(人工修正优先)
+    if fields.keys() & {"entry_type", "domain", "use_tag", "topics"}:
+        fields.setdefault("ai_classify_status", "done")
     sets = ", ".join(f"{k} = %s" for k in fields)
     with get_conn() as conn:
         row = conn.execute(

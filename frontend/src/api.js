@@ -132,6 +132,7 @@ export const api = {
     }),
   deleteEntry: (id) => req(`/entries/${id}`, { method: 'DELETE' }),
   promoteIdea: (id) => req(`/entries/${id}/promote`, { method: 'POST' }),
+  reclassify: (id) => req(`/entries/${id}/reclassify`, { method: 'POST' }),
 
   // 设置:OCR / 问问AI 模型切换
   getSettings: () => req('/settings'),

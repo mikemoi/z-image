@@ -453,6 +453,17 @@ input { font-family: inherit; font-size: 17px; }
 .class-meta { margin-top: 10px; font-size: 12px; color: var(--muted, #68706b); }
 .class-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .class-chip { padding: 3px 7px; border-radius: 999px; background: rgba(45, 83, 72, .08); }
-.class-topics { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 7px; color: var(--accent, #356859); }
+.class-topics { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 7px; align-items: center; color: var(--accent, #356859); }
 .class-source { margin-top: 6px; opacity: .8; }
+.class-selects { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.class-selects select {
+  font-size: 13px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg); color: var(--ink); font-family: inherit;
+}
+.class-topic { cursor: pointer; }
+.class-topic-in {
+  font-size: 13px; width: 72px; padding: 2px 6px; border: 1px dashed var(--line);
+  border-radius: 8px; background: transparent;
+}
+.class-reclass { margin-left: 10px; color: var(--accent); font-size: 12px; }
 .plan-content { flex: 1; min-width: 0; }

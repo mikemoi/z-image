@@ -11,12 +11,14 @@ router = APIRouter(prefix="/api/settings", tags=["settings"], dependencies=[Depe
 class SettingsOut(BaseModel):
     ocr_model: str
     insight_model: str
+    classify_model: str
     candidates: dict[str, list[str]]
 
 
 class SettingsPatch(BaseModel):
     ocr_model: str | None = None
     insight_model: str | None = None
+    classify_model: str | None = None
 
 
 @router.get("", response_model=SettingsOut)
@@ -31,4 +33,6 @@ async def put_settings(patch: SettingsPatch):
         set_setting("ocr_model", patch.ocr_model.strip())
     if patch.insight_model is not None:
         set_setting("insight_model", patch.insight_model.strip())
+    if patch.classify_model is not None:
+        set_setting("classify_model", patch.classify_model.strip())
     return SettingsOut(**current_models(), candidates=MODEL_CANDIDATES)
