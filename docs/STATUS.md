@@ -1,6 +1,6 @@
 # 当前状态快照
 
-> 更新于 2026-07-05，代码基线 `f85470d` 之后。这里描述“现在实际能做什么”，历史愿景看根目录蓝图文档。
+> 更新于 2026-07-06，最新已知提交 `43a6445`。这里描述“现在实际能做什么”，历史愿景看根目录蓝图文档。
 
 ## 当前版本
 
@@ -31,11 +31,13 @@
 - 今日推荐和集中批阅可直接选中原文并立即保存重点，无需进入详情页。
 - PWA/iOS 通过系统 `selectionchange` 记住选区，并显式允许长按选文，不再只依赖 touchend 时机。
 - 批阅页保留独立重新分类；分类模式按固定主题树筛选，标签只显示高频前 12 个。
+- 候选标签/候选子题进入 `core.classification_candidates`，达到阈值后在“我的 → 待审批”显示；候选来源分布记录在 `source_counts`。
+- 固定子题表已做第一轮清理：删除重复/口语项，保留稳定导航项；Docker/部署归服务器，住家证明归证件，风险拆成债务风险/投资风险。
 
 ## 当前兼容层
 
 - 旧 `theme/use_tag/granularity` 仅作为兼容字段服务 Vision、精选/落箱等旧链路；页面分类入口统一使用新字段。
-- 新 `entry_type/domain/main_topic/related_topics/tags/source` 已加入 entries 与 items。
+- 新 `entry_type/domain/main_topic/sub_topic/related_topics/tags/source` 已加入 entries 与 items。
 - `kind` 是入口类型（idea/log/plan），不等于内容类型 `entry_type`。
 - 截图 `source` 默认写“图片”；手写 Entry 默认写“我”；旧 `theme/use_tag/topics` 不删除。
 - “我的”新增时间线、重新整理、待审批入口；搜索支持全部/我的/外部范围。
@@ -45,7 +47,7 @@
 - `theme` 与 `domain` 仍在数据库并存，但前端主路径不再把 `theme/use_tag` 当分类入口。
 - 自动分类失败状态 `failed` 不会自动重试；需从 UI 或 API 调用 reclassify。
 - `image.items` 与 `core.entries` 的人工分类更新均使用固定枚举和最终组合校验。
-- README、旧架构蓝图和规划文档包含历史表述；当前实现以本文件、HANDOFF、API、DATABASE 和源码为准。
+- README、旧架构蓝图和规划文档包含历史表述；当前实现以本文件、HANDOFF、API、DATABASE、TESTING 和源码为准。
 - 暂无隔离测试数据库；现有自动测试均不连接真实 DB、不调用真实 AI。
 - 生产 Vision/分类 Worker 是否健康属于运行状态，不能仅凭仓库判断；需看 `/api/worker/status` 和服务日志。
 

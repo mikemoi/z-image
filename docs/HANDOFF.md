@@ -1,196 +1,350 @@
 # 项目交接文档 · zbrain / z-image
 
-> 写给下一个接手的工程师。目标:读完这份 + `docs/` 其余几份,就能独立继续开发、部署、排障。
-> 深度细节分散在:[FRAMEWORK.md](FRAMEWORK.md)(产品北极星)、[STATUS.md](STATUS.md)(现状快照)、[BLOCKS.md](BLOCKS.md)(板块施工)、[DATABASE.md](DATABASE.md)(数据字典)、[API.md](API.md)、[CHANGELOG.md](CHANGELOG.md)。本文件是总入口。
-
-> **最新未开工交接重点**:用户在 2026-07-06 追加了“最终内容坐标 + 子题 + 候选机制 + 重新整理 + 时间线 + 搜索范围”的完整需求。当前源码还没有实现这批最终需求；详情先读 [NEXT_HANDOFF_CLASSIFICATION.md](NEXT_HANDOFF_CLASSIFICATION.md)。当前工作区还有一批未提交的中间版分类一致性改动，不要误当最终完成版。
-
----
-
-## 0. 一句话:这是什么
-
-不是存储/笔记软件,是**"对抗遗忘、把你截图刷到的东西持续变成你思考"的复利机器**。
-主循环:**捕捉 → 后台消化 → 重新遇见 → 追问 → 想法 → 精选**,检索/提纯贯穿。
-三条准绳:anti-anxiety(无待办无计数)、self-use(真天天用)、别做整理花园(自动优先,不逼手动经营)。
-单用户、自托管。设计者本人是唯一用户,在马德里,ADHD,内容含交易/西语/AI/编程/身心健康等。
+> 更新于 2026-07-06。当前 `main` 已推送到 GitHub `mikemoi/z-image`，最新已知提交：
+>
+> - `43a6445` `Clean fixed subtopics and candidate tracking`
+> - 上一关键提交：`fe0b568` `Implement final content coordinate system`
+>
+> 本文件是下一位接手工程师的入口。读完它，再看 [STATUS.md](STATUS.md)、[DATABASE.md](DATABASE.md)、[API.md](API.md)、[TESTING.md](TESTING.md) 和 [FRAMEWORK.md](FRAMEWORK.md)。
 
 ---
 
-## 1. 技术栈与仓库
+## 0. 这是什么
 
-- **后端**:FastAPI(Python 3.12)+ PostgreSQL 17(schema `core` + `image`)。
-- **前端**:React + Vite + PWA(iPhone 竖屏优先)。
-- **AI**:OpenRouter(chat completions)。默认 `openai/gpt-4.1-mini`。
-- **部署**:单容器(前端 dist 打进后端镜像,单端口 8000)+ 自带 Postgres。Docker Compose。
-- **仓库**:GitHub `mikemoi/z-image`,分支 `main`。身份和凭据使用各开发环境自己的配置，不写入仓库。
+zbrain / z-image 是一个单用户、自托管的第二脑系统。它不是收藏夹，也不是待办整理工具，而是把日常截图、想法、日志和计划持续转化成可搜索、可重新遇见、可追问、可沉淀的个人认知资产。
 
-### 目录结构
-```
-backend/
-  main.py         入口:lifespan(open_pool → ensure_schema → start_worker)+ 挂载前端 dist
-  config.py       环境变量(DATABASE_URL/AUTH_TOKEN/OPENROUTER_*/VISION_MODEL/INSIGHT_MODEL/VISION_DAILY_BUDGET…)
-  db.py           连接池 + ensure_schema()(运行时幂等迁移)
-  auth.py         单用户 Bearer token 鉴权
-  vision.py       call_vision(截图自动分析)+ call_insight(问问AI)+ _chat_image
-  classify.py     call_classify(文字/截图六格分类中的五格,source 由入口定)+ 固定枚举 prompt + normalize 校验
-  clean.py        OCR 文本机械清洗
-  worker.py       两个后台循环:_loop(Vision)+ _classify_loop(分类);预算 0=不限
-  settings_store.py  core.settings kv:ocr_model/insight_model/classify_model 运行时切换
-  routers/        items / entries / stats / search / feed / files / settings
-  models/         items.py / entries.py(含固定枚举 Literal)
-frontend/src/
-  pages/          Home Upload Browse Detail Search / Ideas Logs Capture Plans / Me Settings
-  components/     Icon(线性SVG) TabBar Img ItemCard TokenGate ClassificationMeta ClassificationGuide
-  api.js          单用户 API 客户端(token 存 localStorage)
-  classification.js  前端固定枚举 + 分类说明文案(与后端 Literal 对齐)
-  styles.css      暖纸(#f4f1ea)+ 墨青(#2f6f5f)主题,CSS 变量
-deploy/init.sql   幂等建表(新部署首次执行);ensure_schema 覆盖增量迁移
-docs/             本套文档
-  STATUS.md       当前实现快照与已知问题
-  DECISIONS.md    关键兼容与产品决策
-  TESTING.md      回归测试和集成验收
-backend/tests/    不连接数据库、不调用 AI 的契约测试
-Dockerfile        多阶段:node 构建 dist → python 后端 + 复制 dist 到 /app/frontend/dist
-docker-compose.yml  db(postgres:17)+ backend
+主循环：
+
+```text
+捕捉 → 后台消化 → 重新遇见 → 追问 → 产生想法 → 精选
 ```
 
----
+三条产品准绳：
 
-## 2. 数据模型(要点;完整见 DATABASE.md)
-
-**`core`(脑本体,跨入口)**
-- `sources`:来源登记(origin_schema/table/id),知识/碎片/想法归位时挂。
-- `knowledge`:精选脑,有 `body_tsv`(全文检索),可搜。
-- `notes`:碎片收集箱,`last_seen_at` 支撑"重新遇见"。
-- `tags` / `knowledge_tags`:旧 theme/use 标签表，保留给历史知识链路兼容。
-- `entries`:**文字入口**。`kind ∈ {idea,log,plan}`(想法/日志/计划;已废弃 note/clip)。
-  关键列:`body, source_item_id(来源截图), theme, promoted_at`,
-  **统一分类**:`entry_type, domain, main_topic, related_topics(JSONB), tags(JSONB), source`,
-  自动分类状态:`ai_classify_status(NULL/pending/done/failed), ai_classified_at, ai_classify_output`。
-- `settings`:kv(模型切换等)。
-- `idea_clusters`:**尚未建**(想法簇功能设计好了没落地,见第 6 节)。
-
-**`image`(z-image 入口)**
-- `files`:原图事实源,只增不改(用户删手机后是唯一副本)。
-- `items`:条目。Vision 仍打旧兼容字段:`title/theme/use_tag/granularity/summary/is_ocr_suitable`,
-  JSONB:`ai_output`(含旧 suggested_theme/quality)、`ai_insight`(问问AI缓存),
-  **统一分类(新)**:`entry_type/domain/main_topic/related_topics/tags/source/ai_classify_status/ai_classified_at`。
-- `contents`:OCR 正文(raw_text/clean_text)。
-
-**迁移机制(重要)**:`db.py::ensure_schema()` 在每次启动跑,全是 `ALTER … ADD COLUMN IF NOT EXISTS` / `CREATE … IF NOT EXISTS`,幂等。**部署只需 `git pull && docker compose up -d --build`,不用手动跑 SQL。** `init.sql` 只在全新库首次启动执行。
+- **anti-anxiety**：不做 streak、红点、待办数量和清理焦虑。
+- **self-use**：成功标准是用户真的持续用、手机截图真的能清空。
+- **别做整理花园**：分类服务于使用和重新遇见，不制造人工维护目录的负担。
 
 ---
 
-## 3. 统一分类体系（核心约定）
+## 1. 技术栈与运行方式
 
-主分类路径是领域 → 主轴；关联解决交叉，标签补细节。枚举变更至少同步后端模型、`classify.py`、前端 `classification.js`、文档和测试。
+- 后端：FastAPI / Python 3.12
+- 数据库：PostgreSQL 17，schema 为 `core` 和 `image`
+- 前端：React + Vite + PWA，iPhone 竖屏优先
+- AI：OpenRouter Chat Completions，默认 `openai/gpt-4.1-mini`
+- 部署：Docker Compose，Postgres + 单后端容器，前端 dist 打进后端，单端口 `8000`
+- 原图：宿主机 `/data/zbrain/files`，用户删手机后这里可能是唯一副本，必须备份
 
-| 维度 | 字段 | 固定值 |
-|---|---|---|
-| 类型 | `entry_type` | 想法/句子/规则/决策/知识/资料/记录 |
-| 领域 | `domain` | 身心/生活/能力/财务/方向 |
-| 主轴 | `main_topic` | 对应领域下固定六选一 |
-| 关联 | `related_topics` | 固定主轴数组，最多 2 个 |
-| 标签 | `tags` | 细节关键词，最多 5 个；他人经验属于标签 |
-| 来源 | `source` | 自己/截图/文件(只表进入方式,不表可信度)|
+本地开发：
 
-`use_tag/theme/topics` 只兼容保留，不再是新分类核心。AI 只能归类，不能新增类型、领域、主题或来源。
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m uvicorn main:app --reload
 
----
+cd ..\frontend
+npm run dev
+```
 
-## 4. 三条 AI 管线(全走 OpenRouter,模型各自可在 /settings 切换)
+或根目录：
 
-| 管线 | 函数 | 模型设置 | 触发 | 产出 |
-|---|---|---|---|---|
-| **消化/OCR** | `vision.call_vision` | `ocr_model` | 上传后 worker `_loop` 自动 | title/theme/use_tag/granularity/summary/quality/suggested_theme + OCR（旧兼容字段） |
-| **自动分类** | `classify.call_classify` | `classify_model` | worker `_classify_loop` 自动(entries + items) | entry_type/domain/main_topic/related_topics/tags/highlights |
-| **问问AI** | `vision.call_insight` | `insight_model` | 详情页按需点击 | explanation/quality/quality_note；旧 suggested_theme 仍可能缓存但前端不作为分类入口 |
+```powershell
+.\start-dev.ps1
+```
 
-**worker.py 两个循环并行**:`_loop`(Vision 处理 review 的 items)、`_classify_loop`(分类 pending 的 entries + ok 未分类的 items)。都受 `_take_budget()`,`VISION_DAILY_BUDGET<=0` 视为不限。Vision 按 `_attempts` 自动重试；统一分类失败置 `failed`，不会自动再捞，需 reclassify。
-**人工优先**:用户手改任一分类维度 → 后端置 `ai_classify_status='done'`,worker 不再覆盖。`reclassify` 端点清空 + 置 pending 重跑。
-
----
-
-## 5. 前端要点
-
-- **导航 5 tab**:首页 / 上传 / 想法 / 记录 / 我的。我的包含集中批阅、数据概览、AI 设置、长期计划、回收站和分类说明；个人项目不提供退出登录入口。
-- **分类浏览 / 集中批阅**:外露入口统一使用 `entry_type/domain/main_topic/source`；标签只作为细分关键词，不再把旧 theme/use 作为页面分类。
-- **详情页操作**:“问问 AI”独立于编辑；编辑 / 标重点 / 重新分类 / 删除到回收站 + 我的想法输入。前端已取消精选，后端兼容端点保留。
-- **想法/日志/长期计划**:先保存并由 AI 自动处理；普通卡片提供独立“标重点”和“编辑”。`EntryEditor` 只修改正文和分类，不放 AI 操作。想法页不再显示精选按钮，后端 promote/reclassify 仅兼容旧能力。
-- **集中批阅**:连续逐张模式与按分类模式并存；分类入口按类型、领域、各领域固定主轴、来源和高频标签展示未阅数量。
-- **主题风格**:暖纸底 + 墨青主色 + 线性 SVG 图标(`components/Icon.jsx`),CSS 变量在 `styles.css :root`。
-- **鉴权**:`TokenGate` + token 存 localStorage,`api.js` 每请求带 `Authorization: Bearer`。
-
----
-
-## 6. 当前状态 / 待办 / 已知问题
-
-### 已完成(v0.3 主体)
-捕捉、消化、问问AI、搜索、回收站、今日推荐、集中批阅、重点标注、文字入口、**固定主轴树分类 + AI 自动归类**、AI 设置独立页。
-
-### 待办(非向量,按优先级)
-1. **首页整理**:首页偏杂,尚未收拾(上下文原因暂停)。需先问用户"哪里最碍眼"再动。
-2. **想法簇 / 合并**:设计已定稿(见 BLOCKS.md)但**未落地**。要点:合并=分组不删、保留每条、展开看**演变时间线**、频次自动+手改、代表概括可写可选一条、拆分可逆。要建 `core.idea_clusters(id,gist,times,…)` + `core.entries.cluster_id` + 端点 + Ideas 页多选合并 UI。**AI 建议合并留到向量批**。
-3. **追问(板块4)**:AI 就截图抛 2-3 个思考问题逼你想深。主循环高价值下一步,未建。
-4. **重新遇见(板块3)**:引擎,但现在推的是碎片(`core.notes`)不是**截图**,需重做成推截图 + 当场写想法。
-5. **质量补丁**:删原图留文字、编辑 OCR 正文(裁剪明确不做=整理花园陷阱)。
-
-### 明确推迟
-**向量 / pgvector / 语义聚合 / 存量导入 / AI 建议合并**——用户要求放到最后。方案已议(本地 bge 中文 embedding + pgvector,对 summary/body 算,先近邻后聚类)。
-
-### 已知问题 / 需留意
-- **兼容层**:旧 `theme/use_tag/topics/granularity` 仍在数据库和旧 Vision/精选链路中，但不再显示为新分类一级字段，也不由统一分类 AI 维护。
-- **待用户确认**:生产 Vision 是否真在跑。若截图详情"全空/待处理"→ 检查 `.env` 的 `OPENROUTER_API_KEY` 和 `/settings` 里的模型是否有效。诊断:`docker compose logs --tail=50 backend | grep -iE "vision|worker|error"`。首页/浏览页生长分类不显示的 bug 已修(动态渲染 dimensions)。
-- **命名**:软件名待定,候选 Echo/回响、Muse、Prism、拾光(推荐 Echo)。README/docs 里仍叫 zbrain。
-
----
-
-## 7. 本地开发与验证
-
-- **venv**:`backend/.venv`；若环境失效，用本机 Python 3.12 重建，不依赖交接者的绝对路径。
-- **本地 DB**:连接信息只放 `backend/.env`，不要在文档、测试或提交中记录真实密码。
-- **跑后端**:`./.venv/Scripts/python.exe -m uvicorn main:app`。前端:`cd frontend && npm run dev`(vite,代理 /api → 127.0.0.1:8000)。或根目录 `./start-dev.ps1`。
-- **验证套路**:先按 [TESTING.md](TESTING.md) 运行无副作用回归测试、compileall 和前端构建。写数据库的 E2E 只对本地/专用测试库运行。真 AI 验证需单独授权和有效 OpenRouter key。
-- **注意**:Windows 控制台中文会显示成 GBK 乱码(数据本身没问题;要看中文就写 UTF-8 文件再读)。前端 preview 截图工具偶尔超时,可改用 DOM 查询验证。
-
-## 8. 部署与运维
+生产更新：
 
 ```bash
-cd <服务器上的项目目录>
 git pull
-docker compose up -d --build     # ensure_schema 自动迁移,分类 worker 自动补跑存量
+docker compose up -d --build
 docker compose logs -f backend
 ```
-- `.env` 必改:`POSTGRES_PASSWORD / AUTH_TOKEN / OPENROUTER_API_KEY`;`VISION_DAILY_BUDGET=0`(不限次,交给 API 侧限流)。
-- **原图备份**:落宿主机 `/data/zbrain/files`,用户删手机后是唯一副本(用户另有磁盘备份 + Google 相册,已三重)。
-- **白屏坑(已修)**:`main.py` 用 `_DIST_CANDIDATES` 兼容容器(`/app/frontend/dist`)与本地(`../frontend/dist`)两种布局——别改回单一 `parent.parent`。
 
-### 配置清单
-
-- 必需：`POSTGRES_PASSWORD`（Compose）、`AUTH_TOKEN`、`OPENROUTER_API_KEY`。
-- 数据与服务：`DATABASE_URL`、`FILES_ROOT`。
-- 模型默认：`VISION_MODEL`、`INSIGHT_MODEL`；自动分类默认沿用 `VISION_MODEL`。
-- Worker：`VISION_DAILY_BUDGET`、`VISION_MAX_ATTEMPTS`、`WORKER_POLL_SECONDS`。
-- 数据库 `core.settings` 中的 `ocr_model/insight_model/classify_model` 高于环境变量，并由设置页即时修改。
-
-### 备份与恢复
-
-完整备份必须同时包含 PostgreSQL 和 `FILES_ROOT` 原图目录。只备份其中一个无法完整恢复。
-
-```bash
-# 示例：具体容器名、用户、路径按部署环境替换
-docker compose exec -T db pg_dump -U postgres -d zbrain -Fc > zbrain.dump
-tar -czf zbrain-files.tgz /data/zbrain/files
-
-# 恢复到已创建的空库
-docker compose exec -T db pg_restore -U postgres -d zbrain --clean --if-exists < zbrain.dump
-tar -xzf zbrain-files.tgz -C /
-```
-
-恢复后重建后端并检查 `/api/health`、随机原图、搜索和 Worker 日志。覆盖现有生产库前必须另做一份快照。
+`backend/db.py::ensure_schema()` 会在启动时幂等补迁移；全新库首次启动由 `deploy/init.sql` 建表。
 
 ---
 
-## 9. 从哪接着做
+## 2. 目录结构
 
-推荐顺序:**先问用户首页痛点做首页整理(小)→ 想法簇合并(中,设计现成)→ 追问(中,主循环高价值)→ 重新遇见重做(大,引擎)**。向量永远留最后。动任何新功能前,先对照 FRAMEWORK.md 的"带偏自查"三条:它服务主循环吗?是不是又在做整理花园?心脏(重新遇见)补了吗?
+```text
+backend/
+  main.py                  FastAPI 入口，启动连接池、ensure_schema、worker，挂载前端 dist
+  config.py                环境变量
+  db.py                    PostgreSQL 连接池 + 运行时迁移
+  auth.py                  单用户 Bearer token
+  vision.py                截图 Vision/OCR + 问问 AI
+  classify.py              最终内容坐标分类 prompt + normalize
+  classification_schema.py 最终分类常量：类型/领域/主题/子题/来源与校验
+  worker.py                Vision worker + 分类 worker + 候选累计
+  routers/
+    items.py               截图上传、详情、浏览、批阅、今日推荐、删除
+    entries.py             想法/日志/计划、时间线
+    admin.py               重新整理排队
+    candidates.py          候选标签/候选子题审批
+    search.py              全文搜索 + 全部/我的/外部范围
+    stats.py               数据概览
+    ...
+  models/
+    entries.py / items.py  Pydantic 模型和契约
+frontend/src/
+  classification.js        前端最终分类常量，与 backend/classification_schema.py 对齐
+  api.js                   API 客户端
+  pages/
+    Home Upload Browse Detail Search
+    Capture Logs Ideas Plans
+    Me Overview Settings Trash ReviewSession
+    Timeline Reclassify Approvals
+  components/
+    ClassificationMeta ClassificationGuide EntryEditor ItemCard ...
+deploy/init.sql            新库建表
+docs/                      文档
+```
+
+---
+
+## 3. 当前数据模型要点
+
+### core
+
+- `core.entries`：文字入口，`kind ∈ {idea, log, plan}`。
+  - 手写内容默认 `source=我`。
+  - `kind=idea` 默认 `entry_type=想法`。
+  - `kind=log` 默认 `entry_type=记录`，`logged_for` 为空时按 Europe/Madrid 今天。
+  - 图片详情页写想法时：`source=我`，同时保留 `source_item_id`。
+- `core.knowledge` / `core.notes`：旧精选脑和碎片收集箱，兼容保留。
+- `core.classification_candidates`：候选标签/候选子题池。
+  - 唯一键：`candidate_type + name + domain + main_topic`
+  - 有 `source_counts`，记录 `我/图片/文件` 来源分布。
+
+### image
+
+- `image.files`：checksum 去重后的原图事实源。
+- `image.items`：截图条目。
+  - 截图默认 `source=图片`。
+  - Vision 仍写旧字段 `theme/use_tag/granularity/summary/quality/suggested_theme`。
+  - 最终内容坐标由分类 worker 写入。
+- `image.contents`：OCR 正文。
+
+旧字段 `theme/use_tag/granularity/topics/promoted_at/highlights` 不删除，继续兼容旧链路。新分类主路径不依赖它们。
+
+---
+
+## 4. 最终内容坐标
+
+当前已实现最终稳定版：
+
+```text
+类型：想法 / 知识 / 资料 / 记录 / 规则
+领域：身心 / 生活 / 能力 / 财务 / 方向
+主题：领域下固定 6 个主题
+子题：主题下固定细分
+相关：最多 2 个相关主题
+标签：细节关键词
+来源：我 / 图片 / 文件
+```
+
+旧值兼容：
+
+```text
+entry_type: 句子 → 想法，决策 → 规则
+source: 自己 → 我，截图 → 图片
+```
+
+重要规则：
+
+- `main_topic` 必须属于 `domain`。
+- `sub_topic` 必须属于 `main_topic`；没有合适子题用 `未细分`。
+- `related_topics` 是主题级，不是子题级，最多 2 个，不能重复，不能包含主主题。
+- AI 不能新增正式类型、领域、主题、子题、来源。
+- AI 不能直接创建正式标签或正式子题，只能提名候选。
+- `highlights` 是人工重点，分类/重新整理不再生成或覆盖它。
+
+固定子题表维护在两处：
+
+- 后端：[backend/classification_schema.py](../backend/classification_schema.py)
+- 前端：[frontend/src/classification.js](../frontend/src/classification.js)
+
+改子题时必须同步这两处，并更新测试。
+
+最近一次子题清理已完成：
+
+- 删除固定子题：`洗澡`、`居住/住家证明`、`编程/Docker`、`编程/部署`、`产品/第二脑`、`产品/分类系统`、泛化的 `风险`
+- 改名：`债务/风险 → 债务风险`，`投资/风险 → 投资风险`
+- 新增：ADHD 下 CBT/反馈/启动相关子题，学习方法/理解/复述/内化/构建体系，交易周期/扛单/重仓，落子无悔，情绪转化等
+
+---
+
+## 5. AI 管线
+
+### 1. Vision/OCR
+
+- 函数：`vision.call_vision`
+- 触发：上传后 worker 自动处理 `image.items status='review'`
+- 产出：标题、摘要、旧 theme/use/granularity、OCR、quality、suggested_theme
+
+### 2. 最终内容坐标分类
+
+- 函数：`classify.call_classify`
+- 触发：worker `_classify_loop`
+- 对象：`core.entries` + `image.items`
+- 产出：
+
+```json
+{
+  "entry_type": "知识",
+  "domain": "能力",
+  "main_topic": "学习",
+  "sub_topic": "学习方法",
+  "related_topics": [],
+  "tags": ["认知层次"],
+  "candidate_tags": [],
+  "candidate_sub_topic": null,
+  "candidate_sub_topic_domain": null,
+  "candidate_sub_topic_main_topic": null
+}
+```
+
+如果固定子题不够准确：
+
+```text
+sub_topic = 未细分
+candidate_sub_topic = AI 提名
+```
+
+候选进入 `core.classification_candidates`，来源包括 `我/图片/文件`，达到默认阈值 5 次后在“我的 → 待审批”显示。
+
+### 3. 问问 AI
+
+- 函数：`vision.call_insight`
+- 触发：详情页主动点击
+- 结果缓存到 `image.items.ai_insight`
+- 是 AI 补充，不是原文事实源
+
+---
+
+## 6. 前端当前入口
+
+底部导航 5 个：
+
+- 首页
+- 上传
+- 想法
+- 记录
+- 我的
+
+“我的”当前包括：
+
+- 集中批阅
+- 数据概览
+- 时间线
+- 重新整理
+- 待审批
+- AI 设置
+- 长期计划
+- 回收站
+- 分类说明
+
+搜索页支持范围：
+
+```text
+全部：不限制 source
+我的：source = 我
+外部：source IN (图片, 文件)
+```
+
+今日推荐逻辑：
+
+- 接口：`/api/items/recommendations`
+- 只从未删除、`status='ok'` 的图片条目中取
+- 优先未看过，再按较久没看排序
+- 分类只展示，不参与推荐排序
+
+集中批阅逻辑：
+
+- 接口：`/api/items/review-queue` 和 `/api/items/review-facets`
+- 只取未删除、`status='ok'`、`reviewed_at IS NULL` 的图片条目
+- 分类入口支持类型、领域、主题、来源、高频标签
+- 子题目前只展示，不作为批阅入口分组
+
+---
+
+## 7. 重新整理
+
+入口：`我的 → 重新整理`
+
+接口：`POST /api/admin/reclassify`
+
+支持：
+
+```text
+scope: all / mine / external / unclassified / entries / items
+mode: fill_missing / force
+```
+
+行为：
+
+- 只排队，不同步调用大量 AI
+- 先做确定性兼容修正：
+  - `自己→我`，`截图→图片`
+  - `句子→想法`，`决策→规则`
+  - 旧子题迁移，如 `洗澡→清洁 + #洗澡`、`编程/Docker→服务器/Docker + 相关：编程`
+- `fill_missing` 默认只补缺失，不清空已有分类
+- `force` 会清空分类后重算，前端有确认
+- 不处理正文、OCR、图片、highlights、promoted_at、source_item_id 和旧字段
+
+---
+
+## 8. 当前已知问题与风险
+
+- 生产 AI/worker 健康不能从仓库判断，要看 `/api/worker/status` 和后端日志。
+- 自动分类失败状态 `failed` 不会自动重试，需要手动重新分类或重新整理排队。
+- README、旧架构蓝图、v0.3 规划文档仍含历史表述；当前真实状态以 `HANDOFF/STATUS/API/DATABASE/TESTING` 和源码为准。
+- 暂无隔离测试数据库；自动测试均不连真实 DB、不调真实 AI。
+- 候选批准目前只改候选状态为 `active`，不会自动把候选名写回固定表代码；正式扩充固定子题仍需要改 `classification_schema.py` 和 `classification.js`。
+- `NEXT_HANDOFF_CLASSIFICATION.md` 是历史需求记录，内容已基本实现，不再代表未开工状态。
+
+---
+
+## 9. 下一步建议
+
+优先级建议：
+
+1. **生产部署并用“重新整理”跑一轮旧数据**：确认 source/type/sub_topic 迁移和候选累计表现。
+2. **观察“待审批”候选质量**：尤其学习、ADHD、交易、日常记录这些高频领域。
+3. **OCR 正文排版优化**：当前识别后正文仍可能碎行，适合做规则化清洗，不增加 AI 调用。
+4. **记录 → 近日**：轻量备忘/购物清单，不做 Todo 系统。
+5. **想法簇/可逆合并**：设计已定，尚未实现。
+6. **追问**：围绕截图生成 2-3 个促使用户思考的问题，是主循环高价值下一步。
+7. **重新遇见重做**：当前更多还是 notes/推荐图片，应重做成“截图 → 当场写想法”的闭环。
+8. **向量/pgvector/语义聚合/存量导入**：明确放最后。
+
+---
+
+## 10. 验证
+
+每次交付前至少跑：
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m compileall -q .
+
+cd ..\frontend
+npm run build
+```
+
+最近一次验证通过：
+
+- 后端单测：10 tests OK
+- 后端 compileall：OK
+- 前端 build：OK
+
+---
+
+## 11. 最近提交
+
+```text
+43a6445 Clean fixed subtopics and candidate tracking
+fe0b568 Implement final content coordinate system
+95a66ce Checkpoint classification consistency handoff
+```
