@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
-import { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN, SOURCES } from '../classification'
+import { useClassificationSchema } from '../classification'
 import Img from '../components/Img'
 import HighlightText from '../components/HighlightText'
 import Icon from '../components/Icon'
@@ -21,6 +21,7 @@ function FacetGroup({ title, field, values, counts, onPick }) {
 }
 
 export default function ReviewSession() {
+  const { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN, SOURCES } = useClassificationSchema()
   const nav = useNavigate()
   const [sp] = useSearchParams()
   const batch = sp.get('mode') === 'batch'

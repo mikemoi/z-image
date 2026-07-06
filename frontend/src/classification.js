@@ -1,20 +1,23 @@
-export const ENTRY_TYPES = ['想法', '知识', '资料', '记录', '规则']
-export const DOMAINS = ['身心', '生活', '能力', '财务', '方向']
-export const SOURCES = ['我', '图片', '文件']
+import { useEffect, useState } from 'react'
+import { api } from './api'
+
+export let ENTRY_TYPES = ['想法', '知识', '资料', '记录', '规则']
+export let DOMAINS = ['身心', '生活', '能力', '财务', '方向']
+export let SOURCES = ['我', '图片', '文件']
 
 export const SOURCE_LABELS = { 自己: '我', 截图: '图片', 我: '我', 图片: '图片', 文件: '文件' }
 export const TYPE_LABELS = { 句子: '想法', 决策: '规则' }
 
-export const TOPICS_BY_DOMAIN = {
+export let TOPICS_BY_DOMAIN = {
   身心: ['ADHD', '情绪', '药物', '运动', '睡眠', '身体'],
   生活: ['马德里', '居住', '证件', '合同', '关系', '日常'],
   能力: ['西班牙语', 'AI', '编程', '服务器', '产品', '学习'],
   财务: ['债务', '收入', '消费', '投资', '房产', '交易'],
   方向: ['目标', '底线', '规则', '决策', '复盘', '正向循环'],
 }
-export const ALL_TOPICS = Object.values(TOPICS_BY_DOMAIN).flat()
+export let ALL_TOPICS = Object.values(TOPICS_BY_DOMAIN).flat()
 
-export const SUB_TOPICS_BY_TOPIC = {
+export let SUB_TOPICS_BY_TOPIC = {
   ADHD: ['注意力', '执行力', '拖延', '冲动', '情绪调节', '工作记忆', '时间管理', '药物配合', '反馈机制', '环境设计', '外部提醒', '任务启动', '行为激活', '认知 CBT', '情绪 CBT', '行动 CBT', '成人 ADHD CBT', '未细分'],
   情绪: ['愤怒', '焦虑', '恐惧', '烦躁', '无奈', '委屈', '低落', '自责', '羞耻', '孤独', '压力', '兴奋', '开心', '满足', '平静', '调节', '未细分'],
   药物: ['专注达', '褪黑素', '补剂', '剂量', '药效', '反跳', '副作用', '处方', '药盒', '未细分'],
@@ -47,6 +50,87 @@ export const SUB_TOPICS_BY_TOPIC = {
   正向循环: ['行动转化', '运动转化', '情绪转化', '学习循环', '存钱循环', '睡眠循环', '自我建设', '今天完成', '未细分'],
 }
 
+const listeners = new Set()
+let loadPromise = null
+
+function notify() {
+  listeners.forEach((fn) => fn())
+}
+
+function buildSections() {
+  return [
+    {
+      title: '类型 = 内容形态',
+      items: [
+        ['想法', '我的理解、判断、感悟、句子、认知沉淀'],
+        ['知识', '外部经验、教程、解释、可学习内容'],
+        ['资料', '合同、证件、药盒、票据、配置、需要留存的材料'],
+        ['记录', '我的时间线、状态、情绪、用药、运动、睡眠'],
+        ['规则', '底线、决策、行为准则、不做清单'],
+      ].filter(([name]) => ENTRY_TYPES.includes(name)),
+    },
+    {
+      title: '领域 = 人生大区',
+      items: [
+        ['身心', '身体、大脑、情绪、ADHD、药物、运动、睡眠、健康'],
+        ['生活', '马德里、居住、证件、合同、关系、家庭、日常、办事'],
+        ['能力', '西班牙语、AI、编程、项目、服务器、产品、学习、写作'],
+        ['财务', '债务、收入、消费、投资、房产、交易、风控、养老金'],
+        ['方向', '目标、底线、长期规划、人生策略、正向循环、自我重建'],
+      ].filter(([name]) => DOMAINS.includes(name)),
+    },
+    {
+      title: '主题 = 主要讲什么',
+      items: Object.entries(TOPICS_BY_DOMAIN).map(([domain, topics]) => [domain, topics.join(' / ')]),
+    },
+  ]
+}
+
+export let CLASSIFICATION_SECTIONS = buildSections()
+
+function applySchema(schema) {
+  if (!schema) return
+  if (Array.isArray(schema.entry_types)) ENTRY_TYPES = schema.entry_types
+  if (Array.isArray(schema.domains)) DOMAINS = schema.domains
+  if (Array.isArray(schema.sources)) SOURCES = schema.sources
+  if (schema.topics_by_domain && typeof schema.topics_by_domain === 'object') {
+    TOPICS_BY_DOMAIN = schema.topics_by_domain
+  }
+  if (schema.sub_topics_by_topic && typeof schema.sub_topics_by_topic === 'object') {
+    SUB_TOPICS_BY_TOPIC = schema.sub_topics_by_topic
+  }
+  ALL_TOPICS = Object.values(TOPICS_BY_DOMAIN).flat()
+  CLASSIFICATION_SECTIONS = buildSections()
+  notify()
+}
+
+export function loadClassificationSchema() {
+  if (!loadPromise) {
+    loadPromise = api.classificationSchema().then(applySchema).catch(() => null)
+  }
+  return loadPromise
+}
+
+export function useClassificationSchema() {
+  const [version, setVersion] = useState(0)
+  useEffect(() => {
+    const listener = () => setVersion((v) => v + 1)
+    listeners.add(listener)
+    loadClassificationSchema()
+    return () => listeners.delete(listener)
+  }, [])
+  return {
+    version,
+    ENTRY_TYPES,
+    DOMAINS,
+    SOURCES,
+    TOPICS_BY_DOMAIN,
+    SUB_TOPICS_BY_TOPIC,
+    ALL_TOPICS,
+    CLASSIFICATION_SECTIONS,
+  }
+}
+
 export function displaySource(value, fallback = '我') {
   return SOURCE_LABELS[value] || fallback
 }
@@ -54,30 +138,3 @@ export function displaySource(value, fallback = '我') {
 export function displayType(value) {
   return TYPE_LABELS[value] || value || ''
 }
-
-export const CLASSIFICATION_SECTIONS = [
-  {
-    title: '类型 = 内容形态',
-    items: [
-      ['想法', '我的理解、判断、感悟、句子、认知沉淀'],
-      ['知识', '外部经验、教程、解释、可学习内容'],
-      ['资料', '合同、证件、药盒、票据、配置、需要留存的材料'],
-      ['记录', '我的时间线、状态、情绪、用药、运动、睡眠'],
-      ['规则', '底线、决策、行为准则、不做清单'],
-    ],
-  },
-  {
-    title: '领域 = 人生大区',
-    items: [
-      ['身心', '身体、大脑、情绪、ADHD、药物、运动、睡眠、健康'],
-      ['生活', '马德里、居住、证件、合同、关系、家庭、日常、办事'],
-      ['能力', '西班牙语、AI、编程、项目、服务器、产品、学习、写作'],
-      ['财务', '债务、收入、消费、投资、房产、交易、风控、养老金'],
-      ['方向', '目标、底线、长期规划、人生策略、正向循环、自我重建'],
-    ],
-  },
-  {
-    title: '主题 = 主要讲什么',
-    items: Object.entries(TOPICS_BY_DOMAIN).map(([domain, topics]) => [domain, topics.join(' / ')]),
-  },
-]

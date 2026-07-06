@@ -6,7 +6,7 @@ import Icon from '../components/Icon'
 import HighlightText from '../components/HighlightText'
 import HighlightControls from '../components/HighlightControls'
 import ClassificationMeta from '../components/ClassificationMeta'
-import { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN, SUB_TOPICS_BY_TOPIC, ALL_TOPICS, displayType } from '../classification'
+import { displayType, useClassificationSchema } from '../classification'
 
 function asDraft(item) {
   return { ...item, entry_type: displayType(item.entry_type), tags_text: (item.tags || item.topics || []).join('，') }
@@ -21,6 +21,9 @@ function fmtIdeaTime(ts) {
 }
 
 export default function Detail() {
+  const {
+    ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN, SUB_TOPICS_BY_TOPIC, ALL_TOPICS,
+  } = useClassificationSchema()
   const { id } = useParams()
   const nav = useNavigate()
   const [item, setItem] = useState(null)

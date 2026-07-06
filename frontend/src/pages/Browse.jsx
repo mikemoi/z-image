@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import ItemCard from '../components/ItemCard'
-import { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN, SOURCES } from '../classification'
+import { useClassificationSchema } from '../classification'
 
 const FILTER_LABEL = {
   entry_type: '类型',
@@ -30,6 +30,7 @@ function ChipGroup({ title, field, values, active, onPick }) {
 
 // 统一分类浏览：只展示类型 / 领域 / 主题 / 来源。
 export default function Browse() {
+  const { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN, SOURCES } = useClassificationSchema()
   const [sp, setSp] = useSearchParams()
   const nav = useNavigate()
   const entryType = sp.get('entry_type') || ''

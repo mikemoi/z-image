@@ -158,6 +158,7 @@ export const api = {
 
   // 设置:OCR / 问问AI 模型切换
   getSettings: () => req('/settings'),
+  classificationSchema: () => req('/settings/classification-schema'),
   putSettings: (patch) =>
     req('/settings', {
       method: 'PUT',

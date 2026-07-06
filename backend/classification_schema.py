@@ -1,12 +1,12 @@
 """Final content-coordinate constants and normalizers."""
 
-ENTRY_TYPES = {"想法", "知识", "资料", "记录", "规则"}
+ENTRY_TYPE_ORDER = ["想法", "知识", "资料", "记录", "规则"]
+ENTRY_TYPES = set(ENTRY_TYPE_ORDER)
 ENTRY_TYPE_ALIASES = {
     "句子": "想法",
     "决策": "规则",
 }
 
-DOMAINS = {"身心", "生活", "能力", "财务", "方向"}
 TOPICS_BY_DOMAIN = {
     "身心": ["ADHD", "情绪", "药物", "运动", "睡眠", "身体"],
     "生活": ["马德里", "居住", "证件", "合同", "关系", "日常"],
@@ -14,6 +14,8 @@ TOPICS_BY_DOMAIN = {
     "财务": ["债务", "收入", "消费", "投资", "房产", "交易"],
     "方向": ["目标", "底线", "规则", "决策", "复盘", "正向循环"],
 }
+DOMAIN_ORDER = list(TOPICS_BY_DOMAIN.keys())
+DOMAINS = set(DOMAIN_ORDER)
 FIXED_TOPICS = {topic for values in TOPICS_BY_DOMAIN.values() for topic in values}
 
 SUB_TOPICS_BY_TOPIC = {
@@ -49,7 +51,8 @@ SUB_TOPICS_BY_TOPIC = {
     "正向循环": ["行动转化", "运动转化", "情绪转化", "学习循环", "存钱循环", "睡眠循环", "自我建设", "今天完成", "未细分"],
 }
 
-SOURCES = {"我", "图片", "文件"}
+SOURCE_ORDER = ["我", "图片", "文件"]
+SOURCES = set(SOURCE_ORDER)
 SOURCE_ALIASES = {
     "自己": "我",
     "截图": "图片",

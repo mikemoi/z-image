@@ -1,6 +1,7 @@
-import { CLASSIFICATION_SECTIONS } from '../classification'
+import { useClassificationSchema } from '../classification'
 
 export default function ClassificationGuide() {
+  const { CLASSIFICATION_SECTIONS } = useClassificationSchema()
   return (
     <details className="class-guide">
       <summary>分类说明</summary>

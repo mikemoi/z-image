@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { api } from '../api'
-import { ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN, SUB_TOPICS_BY_TOPIC, ALL_TOPICS, displaySource, displayType } from '../classification'
+import { displaySource, displayType, useClassificationSchema } from '../classification'
 
 function splitTopics(value) {
   return Array.from(new Set(value.split(/[,，\n]/).map((s) => s.trim()).filter(Boolean)))
 }
 
 export default function EntryEditor({ entry, showDate = false, showMood = false, onCancel, onSaved }) {
+  const {
+    ENTRY_TYPES, DOMAINS, TOPICS_BY_DOMAIN, SUB_TOPICS_BY_TOPIC, ALL_TOPICS,
+  } = useClassificationSchema()
   const [draft, setDraft] = useState({
     body: entry.body || '',
     logged_for: entry.logged_for || '',
