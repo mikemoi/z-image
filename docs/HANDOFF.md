@@ -2,8 +2,15 @@
 
 > 更新于 2026-07-06。当前 `main` 已推送到 GitHub `mikemoi/z-image`，最新已知提交：
 >
-> - `43a6445` `Clean fixed subtopics and candidate tracking`
-> - 上一关键提交：`fe0b568` `Implement final content coordinate system`
+> - `3204a64` `fix: batch 3 - search merge-sort/escaping + detail page shows linked ideas`
+> - `dfbc00d` `feat: batch 2 - thumbnail generation + HTTP caching pipeline`
+> - `d5d8dbf` `fix: batch 1 code review fixes (checksum uniqueness, classify retry, tz, auth)`
+> - 上一关键提交：`43a6445` `Clean fixed subtopics and candidate tracking`
+>
+> 这三个提交是对 [CODE_REVIEW_2026-07-06.md](CODE_REVIEW_2026-07-06.md) 全面代码审查的修复：checksum 唯一约束
+> + 原子 upsert（原图误删风险）、分类空结果不再误标完成 + 失败自动重试、往年今天时区 bug、鉴权常量时间比较、
+> 缩略图生成 + 一年期缓存头（截图列表流量从原图降到长边 960px）、搜索合并排序 + LIKE 转义、详情页显示已绑定的想法。
+> `CODE_REVIEW_2026-07-06.md` 里仍有未做项（候选原子 upsert、集成测试骨架等），按里面的优先级顺序继续。
 >
 > 本文件是下一位接手工程师的入口。读完它，再看 [STATUS.md](STATUS.md)、[DATABASE.md](DATABASE.md)、[API.md](API.md)、[TESTING.md](TESTING.md) 和 [FRAMEWORK.md](FRAMEWORK.md)。
 
@@ -344,7 +351,10 @@ npm run build
 ## 11. 最近提交
 
 ```text
+3204a64 fix: batch 3 - search merge-sort/escaping + detail page shows linked ideas
+dfbc00d feat: batch 2 - thumbnail generation + HTTP caching pipeline
+d5d8dbf fix: batch 1 code review fixes (checksum uniqueness, classify retry, tz, auth)
+16f0b03 docs: add code review notes and pending requirements draft
+afa712a Update project handoff after classification work
 43a6445 Clean fixed subtopics and candidate tracking
-fe0b568 Implement final content coordinate system
-95a66ce Checkpoint classification consistency handoff
 ```
