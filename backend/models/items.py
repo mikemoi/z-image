@@ -94,6 +94,41 @@ class OverviewStats(BaseModel):
     classify_statuses: dict[str, int]
 
 
+class TopicTerm(BaseModel):
+    """某主题下一个子题/标签的出现次数。"""
+    term: str
+    type: str                          # 'sub_topic' | 'tag'
+    count: int
+
+
+class TopicTermStats(BaseModel):
+    """“数据概览”点某主题进来的词频排行榜。"""
+    main_topic: str
+    total: int                          # 该主题下未删除的内容总数(entries+items)
+    terms: list[TopicTerm]
+
+
+class TopicTermItem(BaseModel):
+    """词频钻取:命中某个词的具体内容,供跳回原文。"""
+    source: str                         # 'item' | 'entry'
+    id: int
+    kind: str | None = None             # entry 的 kind(idea/log/plan)
+    title: str | None = None
+    summary: str | None = None
+    checksum: str | None = None
+    created_at: datetime
+
+
+class TopicTermItemList(BaseModel):
+    total: int
+    items: list[TopicTermItem]
+
+
+class TopicTermTrendPoint(BaseModel):
+    period: datetime
+    count: int
+
+
 class TrashItem(BaseModel):
     kind: str                         # item | entry | note
     id: int

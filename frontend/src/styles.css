@@ -380,6 +380,21 @@ input { font-family: inherit; font-size: 17px; }
 .overview-track { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
 .overview-track span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
 .overview-empty { color: var(--ink-2); font-size: 13px; margin: 8px 2px; }
+.overview-row-btn { display: block; width: 100%; background: none; border: none; padding: 0; text-align: left; }
+
+/* ── topic terms (主题词频) ─────────────────────────── */
+.topic-term-row { display: flex; align-items: center; justify-content: space-between; width: 100%;
+  background: var(--surface); border: none; border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 12px 14px; margin-bottom: 8px; text-align: left; }
+.topic-term-row.active { outline: 2px solid var(--accent); }
+.topic-term-name { font-size: 15px; }
+.topic-term-type { color: var(--ink-2); font-size: 12px; margin-left: 6px; }
+.topic-term-count { color: var(--accent); font-weight: 600; }
+.topic-term-detail { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 14px; margin: -2px 0 14px; }
+.topic-term-trend { display: flex; align-items: flex-end; gap: 3px; height: 60px; margin: 10px 0 4px; }
+.topic-term-trend-bar { flex: 1; background: var(--accent); border-radius: 2px 2px 0 0; min-height: 2px; }
+.topic-term-trend-empty { color: var(--ink-2); font-size: 13px; }
 
 /* ── 统一小按钮:次级(浅底描边)/ 强调(实心) ─────────────────────────── */
 .mini, .grow-no {

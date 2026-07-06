@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useClassificationSchema } from '../classification'
 
-function StatSection({ title, values, order }) {
+function StatSection({ title, values, order, onSelect }) {
   const entries = (order || Object.keys(values || {}))
     .map((name) => [name, values?.[name] || 0])
     .filter(([, count]) => count > 0)
@@ -11,12 +11,17 @@ function StatSection({ title, values, order }) {
   return (
     <section className="overview-section">
       <h2 className="section-h">{title}</h2>
-      {entries.length === 0 ? <div className="overview-empty">还没有数据</div> : entries.map(([name, count]) => (
-        <div className="overview-row" key={name}>
-          <div className="overview-label"><span>{name}</span><b>{count}</b></div>
-          <div className="overview-track"><span style={{ width: `${Math.max(4, count / max * 100)}%` }} /></div>
-        </div>
-      ))}
+      {entries.length === 0 ? <div className="overview-empty">还没有数据</div> : entries.map(([name, count]) => {
+        const row = (
+          <div className="overview-row" key={name}>
+            <div className="overview-label"><span>{name}</span><b>{count}</b></div>
+            <div className="overview-track"><span style={{ width: `${Math.max(4, count / max * 100)}%` }} /></div>
+          </div>
+        )
+        return onSelect ? (
+          <button key={name} className="overview-row-btn" onClick={() => onSelect(name)}>{row}</button>
+        ) : row
+      })}
     </section>
   )
 }
@@ -49,7 +54,8 @@ export default function Overview() {
           <StatSection title="内容" values={stats.contents} />
           <StatSection title="类型" values={stats.entry_types} order={orders.entry_types} />
           <StatSection title="领域" values={stats.domains} order={orders.domains} />
-          <StatSection title="主题" values={stats.main_topics} order={orders.main_topics} />
+          <StatSection title="主题" values={stats.main_topics} order={orders.main_topics}
+            onSelect={(name) => nav(`/overview/topic/${encodeURIComponent(name)}`)} />
           <StatSection title="子题" values={stats.sub_topics} />
           <StatSection title="来源" values={stats.sources} order={orders.sources} />
           <StatSection title="分类状态" values={stats.classify_statuses} order={['已分类', '待分类', '分类失败']} />

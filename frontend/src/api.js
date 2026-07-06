@@ -103,6 +103,13 @@ export const api = {
   overview: () => req('/stats/overview'),
   workerStatus: () => req('/worker/status'),
 
+  // 主题词频统计:数据概览点某主题进来
+  topicTerms: (mainTopic) => req(`/stats/topic-terms?main_topic=${encodeURIComponent(mainTopic)}`),
+  topicTermItems: (mainTopic, term, type, { limit = 50, offset = 0 } = {}) =>
+    req(`/stats/topic-terms/items?main_topic=${encodeURIComponent(mainTopic)}&term=${encodeURIComponent(term)}&type=${type}&limit=${limit}&offset=${offset}`),
+  topicTermTrend: (mainTopic, term, type, granularity = 'week') =>
+    req(`/stats/topic-terms/trend?main_topic=${encodeURIComponent(mainTopic)}&term=${encodeURIComponent(term)}&type=${type}&granularity=${granularity}`),
+
   // 消化闭环
   review: (id) => req(`/items/${id}/review`, { method: 'PATCH' }),
   promote: (id) => req(`/items/${id}/promote`, { method: 'PATCH' }),

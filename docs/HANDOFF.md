@@ -12,6 +12,10 @@
 > 缩略图生成 + 一年期缓存头（截图列表流量从原图降到长边 960px）、搜索合并排序 + LIKE 转义、详情页显示已绑定的想法。
 > `CODE_REVIEW_2026-07-06.md` 里仍有未做项（候选原子 upsert、集成测试骨架等），按里面的优先级顺序继续。
 >
+> **同日（2026-07-06）新增、尚未提交**：数据概览页新增"主题词频统计"入口，见 [6.1 主题词频统计](#61-主题词频统计新增)。
+> 已在本地验证（单测 16 个通过、前端 build 通过、手动过一遍浏览器交互），改动还在工作区，下一位接手者可以直接
+> `git status`/`git diff` 看到，决定要不要提交。
+>
 > 本文件是下一位接手工程师的入口。读完它，再看 [STATUS.md](STATUS.md)、[DATABASE.md](DATABASE.md)、[API.md](API.md)、[TESTING.md](TESTING.md) 和 [FRAMEWORK.md](FRAMEWORK.md)。
 
 ---
@@ -273,6 +277,38 @@ candidate_sub_topic = AI 提名
 - 分类入口支持类型、领域、主题、来源、高频标签
 - 子题目前只展示，不作为批阅入口分组
 
+### 6.1 主题词频统计（新增）
+
+背景：用户想看"某个主题下（比如交易），哪些子题/标签出现得多"，能点进去看趋势和具体是哪几条内容说的。
+
+设计取舍（讨论记录，供以后加类似统计时参考）：
+
+- 词的口径选的是"已定型的分类结果"（`sub_topic` + `tags`），不做正文自由分词——中文分词要引入 jieba 之类的库，
+  还要处理噪音词/简繁体，工程量明显更大，而 `sub_topic`/`tags` 是分类时已经产出的结构化字段，直接 `GROUP BY` 就够。
+- 范围锁定在选中的一个 `main_topic`（如"交易"），不做全库自由词云。
+- `未细分` 是子题的兜底桶，不是真实词，统计时排除。
+- 入口挂在数据概览页——点"主题"那一行（如"交易"）直接跳转，不单独做一个主题选择器，复用概览页已经在展示的数据。
+- 数据概览和主题词频统计的计数 SQL 已经合并成共享辅助函数 `_dimension_counts()`（`backend/routers/stats.py`），
+  两处都是"未删除的 entries+items 按某字段分组计数"，唯一区别是有没有 `main_topic` 过滤。
+- **集中批阅的"按分类批阅"（`/api/items/review-facets`）刻意没有并进来**：它的语义是"挑一批还没看过的内容去批阅"，
+  范围锁定 `reviewed_at IS NULL AND status='ok'` 且只查 `image.items`（不含手写 entries），是导航/筛选工具而不是
+  统计展示。为了复用而把这个过滤逻辑也塞进 `_dimension_counts()`，会让函数长出一堆 if-scope 分支，不值得。
+
+接口（`backend/routers/stats.py`）：
+
+- `GET /api/stats/topic-terms?main_topic=交易`：该主题下 sub_topic + tag 的出现次数排行榜。
+- `GET /api/stats/topic-terms/items?main_topic=交易&term=重仓&type=tag|sub_topic`：点某个词，看命中的具体内容
+  （截图 or 手写条目），按时间倒序，供跳回原文。
+- `GET /api/stats/topic-terms/trend?main_topic=交易&term=重仓&type=tag|sub_topic&granularity=week|month`：
+  该词随时间的出现次数，前端画简单柱状图。
+
+前端：`frontend/src/pages/TopicStats.jsx`，路由 `/overview/topic/:mainTopic`。`Overview.jsx` 里"主题"那个
+`StatSection` 传了 `onSelect`，点击行会跳过去；其余维度（类型/领域/子题/来源/分类状态）没传 `onSelect`，行为不变。
+
+踩过的坑：`core.entries` 表没有 `title` 列（只有 `body`），第一版把 entries 分支的 `SELECT` 也写了
+`e.title` 直接借用了 items 那边的字段名，本地联调时才炸出 `UndefinedColumn`。已修（`topic_term_items` 里
+entry 分支现在是 `NULL AS title`）。以后往 `core.entries`/`image.items` 的联合查询里加字段，记得两张表列不完全对齐。
+
 ---
 
 ## 7. 重新整理
@@ -340,11 +376,16 @@ cd ..\frontend
 npm run build
 ```
 
-最近一次验证通过：
+最近一次验证通过（2026-07-06，含本次主题词频统计改动）：
 
-- 后端单测：10 tests OK
+- 后端单测：16 tests OK
 - 后端 compileall：OK
 - 前端 build：OK
+- 手动过一遍：起本地前后端，往 `core.entries` 插了两条 `main_topic='交易'` 的临时测试数据，
+  确认「数据概览 → 点交易 → 词频榜 → 点复盘 → 看到趋势图 + 两条原文」全链路通，测试完已清理。
+
+主题词频统计的接口目前只有手动验证，还没补自动化测试（`topic_terms`/`topic_term_items`/`topic_term_trend`），
+如果要往这几个接口加逻辑，建议先补 `tests/` 下的契约测试。
 
 ---
 

@@ -13,6 +13,7 @@ import Me from './pages/Me'
 import Settings from './pages/Settings'
 import Plans from './pages/Plans'
 import Overview from './pages/Overview'
+import TopicStats from './pages/TopicStats'
 import Trash from './pages/Trash'
 import ReviewSession from './pages/ReviewSession'
 import Reclassify from './pages/Reclassify'
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/plans" element={<Plans />} />
             <Route path="/overview" element={<Overview />} />
+            <Route path="/overview/topic/:mainTopic" element={<TopicStats />} />
             <Route path="/trash" element={<Trash />} />
             <Route path="/review" element={<ReviewSession />} />
             <Route path="/reclassify" element={<Reclassify />} />
