@@ -2,14 +2,14 @@
 import logging
 from pathlib import Path
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from db import open_pool, close_pool, check_db, ensure_schema
 from auth import require_token
-from config import AUTH_TOKEN
+from config import AUTH_TOKEN, CORS_ALLOW_ORIGINS, IS_DEV
 from routers import items, files, stats, feed, search, entries, settings, trash, admin, candidates
 from worker import start_worker, stop_worker, budget_status
 
@@ -21,6 +21,8 @@ _DEFAULT_AUTH_TOKEN = "dev-token-change-me"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if AUTH_TOKEN == _DEFAULT_AUTH_TOKEN:
+        if not IS_DEV:
+            raise RuntimeError("AUTH_TOKEN is still the default development token")
         log.warning(
             "AUTH_TOKEN 仍是默认开发口令 '%s' —— 若这是生产/公网部署,请立刻在 .env 里改掉,"
             "否则任何人都能猜到这个口令直接访问 upload/delete。",
@@ -39,7 +41,7 @@ app = FastAPI(title="zbrain", version="0.1.0", lifespan=lifespan)
 # 单用户自用,前端与后端分离开发期放开 CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ALLOW_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -88,6 +90,8 @@ if _DIST.exists():
     @app.get("/{full_path:path}")
     async def spa(full_path: str):
         """静态文件直出;其余路径回退 index.html 交给前端路由。"""
+        if full_path.startswith("api/"):
+            raise HTTPException(404, "api route not found")
         candidate = _DIST / full_path
         if full_path and candidate.is_file():
             return FileResponse(candidate)

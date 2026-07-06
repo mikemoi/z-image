@@ -19,6 +19,7 @@ from config import (
     VISION_DAILY_BUDGET, VISION_MAX_ATTEMPTS, WORKER_POLL_SECONDS, CLASSIFY_MAX_ATTEMPTS,
 )
 from classification_schema import normalize_source
+from file_storage import path_from_record
 
 log = logging.getLogger("zbrain.worker")
 
@@ -76,7 +77,7 @@ def _fetch_eligible(limit: int) -> list[dict]:
     """status='review' 且(从未处理 或 失败但未超重试上限)。"""
     with get_conn() as conn:
         return conn.execute(
-            """SELECT i.id, f.file_path
+            """SELECT i.id, f.checksum, f.file_path, f.original_filename
                FROM image.items i
                JOIN image.files f ON f.id = i.file_id
                WHERE i.status = 'review'
@@ -95,12 +96,14 @@ def _fetch_eligible(limit: int) -> list[dict]:
 # ── 处理单个 ─────────────────────────────────────────────────────────────────
 async def process_item(item_id: int, file_path: str) -> bool:
     """处理一个 item。成功 True(status→ok),失败 False(留 review + 记 _attempts)。"""
-    try:
-        result = await call_vision(file_path, model=ocr_model())
-    except Exception as e:  # noqa: BLE001 —— 外部调用兜底,不阻塞
-        log.warning("vision failed for item %s: %s", item_id, e)
-        _record_failure(item_id, str(e))
-        return False
+    result = _cached_vision_result(item_id)
+    if result is None:
+        try:
+            result = await call_vision(file_path, model=ocr_model())
+        except Exception as e:  # noqa: BLE001 —— 外部调用兜底,不阻塞
+            log.warning("vision failed for item %s: %s", item_id, e)
+            _record_failure(item_id, str(e))
+            return False
 
     try:
         with get_conn() as conn:
@@ -126,11 +129,25 @@ async def process_item(item_id: int, file_path: str) -> bool:
         return True
     except Exception as e:  # noqa: BLE001 —— 落库失败也兜底
         log.warning("db write failed for item %s: %s", item_id, e)
-        _record_failure(item_id, f"db: {e}")
+        _record_failure(item_id, f"db: {e}", result)
         return False
 
 
-def _record_failure(item_id: int, msg: str):
+def _cached_vision_result(item_id: int) -> dict | None:
+    try:
+        with get_conn() as conn:
+            prev = conn.execute(
+                "SELECT ai_output FROM image.items WHERE id=%s", (item_id,)
+            ).fetchone()
+        if prev and isinstance(prev.get("ai_output"), dict):
+            cached = prev["ai_output"].get("_vision_result")
+            return cached if isinstance(cached, dict) else None
+    except Exception as e:  # noqa: BLE001
+        log.error("could not read cached vision result for item %s: %s", item_id, e)
+    return None
+
+
+def _record_failure(item_id: int, msg: str, vision_result: dict | None = None):
     """把失败次数累加进 ai_output,status 保持 review。"""
     try:
         with get_conn() as conn:
@@ -140,9 +157,12 @@ def _record_failure(item_id: int, msg: str):
             attempts = 0
             if prev and prev["ai_output"] and isinstance(prev["ai_output"], dict):
                 attempts = int(prev["ai_output"].get("_attempts", 0))
+            payload = {"_error": msg[:500], "_attempts": attempts + 1}
+            if vision_result is not None:
+                payload["_vision_result"] = vision_result
             conn.execute(
                 "UPDATE image.items SET ai_output=%s, updated_at=now() WHERE id=%s",
-                (Jsonb({"_error": msg[:500], "_attempts": attempts + 1}), item_id),
+                (Jsonb(payload), item_id),
             )
             conn.commit()
     except Exception as e:  # noqa: BLE001
@@ -231,33 +251,30 @@ def _mark_classify_failed(entry_id: int, msg: str):
 
 def _upsert_candidate(conn, candidate_type: str, name: str, domain: str, main_topic: str,
                       source: str, examples: Jsonb):
-    row = conn.execute(
-        """SELECT id, source_counts FROM core.classification_candidates
-           WHERE candidate_type=%s AND name=%s AND domain=%s AND main_topic=%s""",
-        (candidate_type, name, domain, main_topic),
-    ).fetchone()
-    counts = {}
-    if row and isinstance(row.get("source_counts"), dict):
-        counts = dict(row["source_counts"])
-    counts[source] = int(counts.get(source, 0)) + 1
-    if row:
-        conn.execute(
-            """UPDATE core.classification_candidates
-               SET occurrence_count=occurrence_count + 1,
-                   content_count=content_count + 1,
-                   source_counts=%s,
-                   updated_at=now()
-               WHERE id=%s""",
-            (Jsonb(counts), row["id"]),
-        )
-    else:
-        conn.execute(
-            """INSERT INTO core.classification_candidates
-                   (candidate_type, name, domain, main_topic, status, occurrence_count,
-                    content_count, source_counts, examples)
-               VALUES (%s, %s, %s, %s, 'pending', 1, 1, %s, %s)""",
-            (candidate_type, name, domain, main_topic, Jsonb(counts), examples),
-        )
+    conn.execute(
+        """INSERT INTO core.classification_candidates
+               (candidate_type, name, domain, main_topic, status, occurrence_count,
+                content_count, source_counts, examples)
+           VALUES (%s, %s, %s, %s, 'pending', 1, 1, %s, %s)
+           ON CONFLICT (candidate_type, name, domain, main_topic) DO UPDATE
+           SET occurrence_count = core.classification_candidates.occurrence_count + 1,
+               content_count = core.classification_candidates.content_count + 1,
+               source_counts = jsonb_set(
+                   COALESCE(core.classification_candidates.source_counts, '{}'::jsonb),
+                   ARRAY[%s],
+                   to_jsonb(
+                       COALESCE((core.classification_candidates.source_counts->>%s)::int, 0) + 1
+                   ),
+                   true
+               ),
+               examples = COALESCE(core.classification_candidates.examples, '[]'::jsonb)
+                          || EXCLUDED.examples,
+               updated_at = now()""",
+        (
+            candidate_type, name, domain, main_topic, Jsonb({source: 1}), examples,
+            source, source,
+        ),
+    )
 
 
 def _upsert_candidates(conn, result: dict, content_kind: str, content_id: int, source: str):
@@ -397,7 +414,8 @@ async def _loop():
                 if not await _take_budget():
                     log.info("daily budget exhausted (%s), pausing", VISION_DAILY_BUDGET)
                     break
-                await process_item(it["id"], it["file_path"])
+                file_path = path_from_record(it["checksum"], it["file_path"], it["original_filename"])
+                await process_item(it["id"], str(file_path))
                 did_work = True
         except Exception as e:  # noqa: BLE001 —— 循环自身不能挂
             log.error("worker cycle error: %s", e)

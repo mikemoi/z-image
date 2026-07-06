@@ -17,15 +17,24 @@ export default function Home() {
   useEffect(() => {
     let alive = true
     async function tick() {
+      if (document.visibilityState !== 'visible') return
       try {
         const s = await api.workerStatus()
         if (!alive) return
         setWorking(s.working)
       } catch { /* ignore */ }
     }
+    function onVisibilityChange() {
+      if (document.visibilityState === 'visible') tick()
+    }
     tick()
     const t = setInterval(tick, 4000)
-    return () => { alive = false; clearInterval(t) }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      alive = false
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
   }, [])
 
   function search(e) {

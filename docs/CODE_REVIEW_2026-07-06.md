@@ -29,20 +29,20 @@ Vision 有 `_attempts` 重试到上限机制，分类失败一次即永久 faile
 
 ## 二、中优先级：安全与部署加固
 
-### ☑ 6. 弱默认凭据静默生效（部分：token 比较已加固 + 启动警告；未做硬失败，见下）
+### ☑ 6. 弱默认凭据静默生效
 `config.py` 硬编码兜底密码 `zbrain2024` 和 `dev-token-change-me`；生产 `.env` 漏配时照常启动。`auth.py` 用 `!=` 比较 token。
 **修复**：检测到默认 token 且非开发模式时启动报错；`secrets.compare_digest`。
 
-### ☐ 7. 上传无大小/类型校验
+### ☑ 7. 上传无大小/类型校验
 任意大小/扩展名都收，`await up.read()` 整个进内存。建议 20MB 上限 + 扩展名白名单。
 
-### ☐ 8. file_path 存上传时环境的路径
+### ☑ 8. file_path 存上传时环境的路径
 本地存 `./data/...`、容器存 `/data/...`，同库换环境旧图全 410。文件名即 `checksum.ext`，建议读取时从 `FILES_ROOT + checksum` 推导路径，不信任 DB 旧路径。
 
-### ☐ 9. SPA catch-all 吞掉未知 API 路径
+### ☑ 9. SPA catch-all 吞掉未知 API 路径
 `main.py` 把 `/api/不存在` 也回 index.html。加一行 `full_path.startswith("api/")` → 404。
 
-### ☐ 10. CORS 全开 `*`
+### ☑ 10. CORS 全开 `*`
 生产同域单端口，其实可收紧。记录在案，低优先。
 
 ## 三、中优先级：正确性小刺
@@ -53,13 +53,13 @@ DECISIONS.md 称"三个模型共用每日预算"，但 insight 端点不走 `_ta
 ### ☑ 12. 搜索两处小毛病
 `routers/search.py`：① `q` 中 `%`/`_` 未转义；② 图片/文字命中各取 limit 拼接再截断，图片永远排前，图片多时文字结果被完全挤掉。建议按 created_at 合并排序再截断。
 
-### ☐ 13. Vision 落库失败会重复烧钱
+### ☑ 13. Vision 落库失败会重复烧钱
 `worker.py` DB 写失败丢弃已付费的 Vision 结果，重试重新调用。可把结果暂存进失败记录复用。低频。
 
-### ☐ 14. 候选累计读-改-写竞态
+### ☑ 14. 候选累计读-改-写竞态
 `worker.py` `_upsert_candidate` 先读再写，并发可丢计数或撞唯一约束导致整次分类事务回滚（分类成功却标 failed）。改单条 `INSERT ... ON CONFLICT DO UPDATE`。
 
-### ☐ 15. `_reading_queue` 的 total 是页大小非总数
+### ☑ 15. `_reading_queue` 的 total 是页大小非总数
 `routers/items.py`。前端未用，防将来误用。
 
 ### ☑ 16. `vision.py` `_QUALITY` 后定义先引用
@@ -70,7 +70,7 @@ DECISIONS.md 称"三个模型共用每日预算"，但 insight 端点不走 `_ta
 ### ☑ 17. 材料 ↔ 想法只有"写"没有"看"
 Detail/ReviewSession 能就地写想法（闭环动线好），但详情页看不到该图已绑定的想法——加工层资产不可见。应加"我的想法（N 条）"区块，纯查询零 AI 成本，直接服务新定位核心。
 
-### ☐ 18. Home 每 4 秒轮询 workerStatus 永不停
+### ☑ 18. Home 每 4 秒轮询 workerStatus 永不停
 PWA 后台也在打。加 `document.visibilityState` 判断。
 
 ### ☐ 19. 分类表三份维护
@@ -78,7 +78,7 @@ PWA 后台也在打。加 `document.visibilityState` 判断。
 
 ## 五、测试与工程债
 
-### ☐ 20. 测试只覆盖分类契约
+### ☐ 20. 测试只覆盖分类契约（部分已补：本轮新增上传校验、路径推导、候选 upsert 回归；admin/items 集成测试仍建议继续）
 worker（候选累计/COALESCE 填充）、admin 确定性迁移 SQL、items 全部路由零测试；现有测试 mock conn，SQL 未被验证。admin.py 手写 JSONB 迁移最值得补集成测试（docker 临时 PG）。
 
 ### ☐ 21. schema 三处定义

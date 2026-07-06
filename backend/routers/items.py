@@ -5,17 +5,18 @@
 """
 import os
 import hashlib
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query
 from psycopg.types.json import Jsonb
 
 from auth import require_token
 from db import get_conn
-from config import FILES_ROOT
 from worker import process_item
 from vision import call_insight
 from settings_store import insight_model
+from file_storage import (
+    IMAGE_DIR, path_for_checksum, path_from_record, read_limited_upload, validate_upload_meta,
+)
 from thumbnail import ensure_thumbnail, thumb_path_for
 from models.items import (
     UploadResult, ItemBrief, ItemDetail, ItemList, OkResult,
@@ -26,8 +27,6 @@ from models.entries import CleanupItem, validate_topic_tree_values
 from classification_schema import normalize_entry_type, normalize_source
 
 router = APIRouter(prefix="/api/items", tags=["items"], dependencies=[Depends(require_token)])
-
-IMAGE_DIR = Path(FILES_ROOT) / "image"
 
 
 def _item_data(row) -> dict:
@@ -55,14 +54,6 @@ def _source_values(value: str) -> tuple[str, ...]:
     if value == "我":
         return ("我", "自己")
     return (value,)
-
-
-def _ext_from_name(name: str) -> str:
-    """从原始文件名取扩展名,缺省 .jpg。只留字母数字,防注入。"""
-    ext = Path(name or "").suffix.lower().lstrip(".")
-    ext = "".join(c for c in ext if c.isalnum())
-    return ext or "jpg"
-
 
 def _chunk(text: str, max_len: int = 1200) -> list[str]:
     """初版切块:按空行分段;过长段再按句号软切。返回非空块列表。"""
@@ -93,13 +84,13 @@ async def upload(images: list[UploadFile] = File(...)):
     with get_conn() as conn:
         for up in images:
             try:
-                data = await up.read()
+                ext = validate_upload_meta(up)
+                data = await read_limited_upload(up)
                 if not data:
                     continue
                 checksum = hashlib.sha256(data).hexdigest()
-                ext = _ext_from_name(up.filename)
                 filename = f"{checksum}.{ext}"
-                abs_path = IMAGE_DIR / filename
+                abs_path = path_for_checksum(checksum, ext)
                 # checksum 命名天然去重:同内容同文件名,已存在就不重复写盘
                 if not abs_path.exists():
                     abs_path.write_bytes(data)
@@ -127,6 +118,8 @@ async def upload(images: list[UploadFile] = File(...)):
                     (file_id,),
                 )
                 received += 1
+            except HTTPException:
+                raise
             except Exception:
                 # 单张失败不影响其余;不阻塞"手机可清空"的体感
                 continue
@@ -140,14 +133,16 @@ async def process_now(item_id: int):
     """同步跑一遍 Vision 处理(测试/调试用),完成后返回详情。"""
     with get_conn() as conn:
         row = conn.execute(
-            """SELECT i.id, f.file_path FROM image.items i
+            """SELECT i.id, f.checksum, f.file_path, f.original_filename FROM image.items i
                JOIN image.files f ON f.id = i.file_id
                WHERE i.id = %s AND i.deleted_at IS NULL""",
             (item_id,),
         ).fetchone()
     if not row:
         raise HTTPException(404, "item not found")
-    ok = await process_item(item_id, row["file_path"])
+    ok = await process_item(
+        item_id, str(path_from_record(row["checksum"], row["file_path"], row["original_filename"]))
+    )
     if not ok:
         raise HTTPException(502, "vision processing failed, item left in review")
     return await get_item(item_id)
@@ -179,7 +174,8 @@ async def insight(item_id: int, refresh: bool = Query(default=False)):
     """详情页主动点击才调 AI(省钱),结果缓存进 ai_insight;refresh=true 强制重算。"""
     with get_conn() as conn:
         row = conn.execute(
-            """SELECT i.id, f.file_path, i.title, i.summary, i.ai_insight
+            """SELECT i.id, f.checksum, f.file_path, f.original_filename,
+                      i.title, i.summary, i.ai_insight
                FROM image.items i
                JOIN image.files f ON f.id = i.file_id
                WHERE i.id = %s AND i.deleted_at IS NULL""",
@@ -206,7 +202,8 @@ async def insight(item_id: int, refresh: bool = Query(default=False)):
         "clean_text": content["clean_text"] if content else None,
     }
     try:
-        result = await call_insight(row["file_path"], context, existing, model=insight_model())
+        image_path = path_from_record(row["checksum"], row["file_path"], row["original_filename"])
+        result = await call_insight(str(image_path), context, existing, model=insight_model())
     except Exception as e:  # noqa: BLE001 —— 外部调用失败直接告知,不缓存
         raise HTTPException(502, f"AI 调用失败: {e}")
 
@@ -427,6 +424,12 @@ def _reading_queue(where: str, limit: int, order: str,
     filters, params = _review_filter_sql(entry_type, domain, main_topic, tag, source)
     extra = "".join(f" AND {clause}" for clause in filters)
     with get_conn() as conn:
+        total = conn.execute(
+            f"""SELECT count(*) AS c
+                FROM image.items i JOIN image.files f ON f.id=i.file_id
+                WHERE i.deleted_at IS NULL AND i.status='ok' AND {where}{extra}""",
+            params,
+        ).fetchone()["c"]
         rows = conn.execute(
             f"""SELECT i.id, i.file_id, f.checksum, i.status, i.title, i.summary,
                        i.theme, i.use_tag, i.granularity, i.entry_type, i.domain,
@@ -439,7 +442,7 @@ def _reading_queue(where: str, limit: int, order: str,
                 ORDER BY {order} LIMIT %s""",
             [*params, limit],
         ).fetchall()
-    return ItemList(total=len(rows), limit=limit, offset=0,
+    return ItemList(total=total, limit=limit, offset=0,
                     items=[_brief(r) for r in rows])
 
 
@@ -716,11 +719,13 @@ async def purge(item_id: int):
         ).fetchone()
         if not still:
             frow = conn.execute(
-                "SELECT file_path FROM image.files WHERE id = %s", (file_id,)
+                "SELECT checksum, file_path, original_filename FROM image.files WHERE id = %s", (file_id,)
             ).fetchone()
             conn.execute("DELETE FROM image.files WHERE id = %s", (file_id,))
             if frow:
-                original_path = Path(frow["file_path"])
+                original_path = path_from_record(
+                    frow["checksum"], frow["file_path"], frow["original_filename"]
+                )
                 try:
                     os.remove(original_path)
                 except OSError:
