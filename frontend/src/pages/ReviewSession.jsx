@@ -150,7 +150,7 @@ export default function ReviewSession() {
           <button className="mini entry-save" onClick={() => load(filter)}>再看 10 张</button></div> : !detail ?
         <div className="empty-hint">加载中…</div> : <>
           <div className="review-card">
-            <Img checksum={detail.checksum} className="review-image" />
+            <Img checksum={detail.checksum} className="review-image" thumb />
             {detail.title && <h2>{detail.title}</h2>}
             {detail.summary && <p className="review-summary">{detail.summary}</p>}
             {(detail.clean_text || detail.raw_text) && <>

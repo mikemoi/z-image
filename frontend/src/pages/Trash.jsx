@@ -30,7 +30,7 @@ export default function Trash() {
     {loading ? <div className="empty-hint">加载中…</div> : items.length === 0 ?
       <div className="empty-hint">回收站是空的</div> :
       <div className="trash-list">{items.map((x) => <div className="trash-card" key={`${x.kind}-${x.id}`}>
-        {x.checksum && <Img checksum={x.checksum} className="trash-thumb" />}
+        {x.checksum && <Img checksum={x.checksum} className="trash-thumb" thumb />}
         <div className="trash-copy"><b>{x.title || ({entry: '文字', note: '碎片'}[x.kind]) || '截图'}</b>
           {x.body && <span>{x.body}</span>}</div>
         <div className="trash-buttons"><button onClick={() => restore(x)}>恢复</button>

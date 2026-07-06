@@ -12,7 +12,7 @@
 `deploy/init.sql` 里 `idx_files_checksum` 是普通索引，非 UNIQUE。上传去重靠 `routers/items.py` 的先查后插（`SELECT ... LIMIT 1`），并发或竞态可产生**同 checksum 两行 files 指向同一磁盘文件**。`purge` 只按 file_id 查引用，另一行的 item 还在，但 `os.remove` 已把文件删了。原图是唯一副本，这是全项目唯一可能物理丢图的代码路径。
 **修复**：加 `CREATE UNIQUE INDEX`（先清历史重复行）+ purge 前按 file_path/checksum 查引用而不只按 file_id。
 
-### ☐ 2. 图片无缩略图、无缓存——存量导入的硬阻塞
+### ☑ 2. 图片无缩略图、无缓存——存量导入的硬阻塞
 `frontend/src/components/Img.jsx` 每次挂载 fetch **完整原图** blob，卸载即 revoke，无缓存；`routers/files.py` 无 Cache-Control。Browse `limit=200` 一次拉 200 张全尺寸截图（几百 MB）；翻页/返回全部重新下载。5-6000 张存量导入后浏览体系不可用。
 **修复**：上传时生成缩略图（或按需缩放端点）+ `Cache-Control: immutable`（checksum 命名天然适合）+ 前端按 checksum 缓存。这是下一阶段第一件工程事。
 

@@ -16,6 +16,7 @@ from config import FILES_ROOT
 from worker import process_item
 from vision import call_insight
 from settings_store import insight_model
+from thumbnail import ensure_thumbnail, thumb_path_for
 from models.items import (
     UploadResult, ItemBrief, ItemDetail, ItemList, OkResult,
     ItemUpdate, DimensionStats, PromoteResult, NoteResult,
@@ -102,6 +103,11 @@ async def upload(images: list[UploadFile] = File(...)):
                 # checksum 命名天然去重:同内容同文件名,已存在就不重复写盘
                 if not abs_path.exists():
                     abs_path.write_bytes(data)
+                # 顺手生成缩略图,列表/批阅用它省流量;失败(非图片/损坏)不阻塞上传主流程
+                try:
+                    ensure_thumbnail(abs_path)
+                except Exception:
+                    pass
                 # DB 里存磁盘路径(与部署环境一致的绝对/相对形式)
                 file_path = str(abs_path)
 
@@ -714,9 +720,14 @@ async def purge(item_id: int):
             ).fetchone()
             conn.execute("DELETE FROM image.files WHERE id = %s", (file_id,))
             if frow:
+                original_path = Path(frow["file_path"])
                 try:
-                    os.remove(frow["file_path"])
+                    os.remove(original_path)
                 except OSError:
                     pass  # 文件已不在则忽略
+                try:
+                    os.remove(thumb_path_for(original_path))
+                except OSError:
+                    pass  # 缩略图已不在或从未生成过则忽略
         conn.commit()
     return OkResult()

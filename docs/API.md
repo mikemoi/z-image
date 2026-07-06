@@ -115,6 +115,6 @@ Entry 响应包含：`entry_type/domain/main_topic/sub_topic/related_topics/tags
 | POST | `/api/feed/notes/{id}/restore` | 恢复碎片 |
 | DELETE | `/api/feed/notes/{id}/purge` | 永久删除已软删碎片 |
 | GET | `/api/trash` | 汇总回收站中的截图、Entry 和碎片 |
-| GET | `/api/files/{checksum}` | 鉴权读取原图；磁盘文件丢失返回 410 |
+| GET | `/api/files/{checksum}` | 鉴权读取原图；`thumb=true` 取长边 960px 的列表缩略图(缺失按需现生成,失败回退原图)；带一年期不可变缓存头；磁盘文件丢失返回 410 |
 
 交互式 OpenAPI：`http://127.0.0.1:8000/docs`。

@@ -72,7 +72,7 @@ export default function Ideas() {
                   <HighlightText text={e.body} highlights={e.highlights} className="entry-body" />
                   {e.checksum && (
                     <button className="idea-src" onClick={() => nav(`/item/${e.source_item_id}`)}>
-                      <Img checksum={e.checksum} className="idea-thumb" /><span>查看来源截图</span>
+                      <Img checksum={e.checksum} className="idea-thumb" thumb /><span>查看来源截图</span>
                     </button>
                   )}
                   <ClassificationMeta entry={e} actions={<>

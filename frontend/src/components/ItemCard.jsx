@@ -10,7 +10,7 @@ export default function ItemCard({ item, onDelete, actionLabel = '删除' }) {
   return (
     <div className="card">
       <div className="card-thumb" onClick={go}>
-        <Img checksum={item.checksum} alt={item.title || ''} className="thumb" />
+        <Img checksum={item.checksum} alt={item.title || ''} className="thumb" thumb />
       </div>
       <div className="card-body" onClick={go}>
         {item.title && <div className="card-title">{item.title}</div>}

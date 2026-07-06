@@ -36,10 +36,30 @@ async function req(path, opts = {}) {
 
 // 原图 URL(带 token 走 query 不方便,改用 fetch blob 也可;这里图片直接用 <img> + 代理,
 // 但接口需鉴权 → 用 fetch 拿 blob 生成 objectURL)
-export async function fileObjectUrl(checksum) {
-  const res = await fetch(`/api/files/${checksum}`, { headers: authHeaders() })
-  if (!res.ok) throw new Error('file load failed')
-  const blob = await res.blob()
+//
+// blob 按 checksum(+是否缩略图)缓存:同一张图在列表间来回翻页/返回不用重新走网络。
+// 只缓存 blob 本身,objectURL 仍按每次挂载现造现收(避免不销毁地累积 URL)。
+const _blobCache = new Map()
+const _BLOB_CACHE_LIMIT = 300
+
+function _cacheKey(checksum, thumb) {
+  return `${checksum}:${thumb ? 't' : 'f'}`
+}
+
+export async function fileObjectUrl(checksum, { thumb = false } = {}) {
+  const key = _cacheKey(checksum, thumb)
+  let blob = _blobCache.get(key)
+  if (!blob) {
+    const res = await fetch(`/api/files/${checksum}${thumb ? '?thumb=true' : ''}`, {
+      headers: authHeaders(),
+    })
+    if (!res.ok) throw new Error('file load failed')
+    blob = await res.blob()
+    if (_blobCache.size >= _BLOB_CACHE_LIMIT) {
+      _blobCache.delete(_blobCache.keys().next().value)
+    }
+    _blobCache.set(key, blob)
+  }
   return URL.createObjectURL(blob)
 }
 

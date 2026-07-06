@@ -56,7 +56,7 @@ export default function Home() {
         <h2 className="section-h">今日推荐</h2>
         {!today ? <div className="empty-hint">还没有内容</div> :
           <button className="today-card" onClick={() => nav('/review?mode=today')}>
-            <Img checksum={today.checksum} className="resurface-thumb" />
+            <Img checksum={today.checksum} className="resurface-thumb" thumb />
             <div><b>{today.title || '未命名'}</b>{today.summary && <span>{today.summary}</span>}</div>
           </button>}
       </section>
