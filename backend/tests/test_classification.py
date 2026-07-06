@@ -7,6 +7,7 @@ from unittest.mock import patch
 from pydantic import ValidationError
 
 from classify import normalize
+from classification_schema import SUB_TOPICS_BY_TOPIC
 from models.entries import EntryCreate, EntryUpdate
 from routers.entries import create_entry, reclassify, update_entry
 
@@ -107,6 +108,23 @@ class ClassificationContractTests(unittest.TestCase):
     def test_entry_models_accept_highlights(self):
         payload = EntryCreate(body="先做一步。再看结果。", highlights=["先做一步。"])
         self.assertEqual(payload.highlights, ["先做一步。"])
+
+    def test_fixed_subtopics_are_cleaned_and_extended(self):
+        self.assertIn("反馈机制", SUB_TOPICS_BY_TOPIC["ADHD"])
+        self.assertIn("认知 CBT", SUB_TOPICS_BY_TOPIC["ADHD"])
+        self.assertIn("学习方法", SUB_TOPICS_BY_TOPIC["学习"])
+        self.assertIn("扛单", SUB_TOPICS_BY_TOPIC["交易"])
+        self.assertIn("落子无悔", SUB_TOPICS_BY_TOPIC["决策"])
+        self.assertNotIn("住家证明", SUB_TOPICS_BY_TOPIC["居住"])
+        self.assertIn("住家证明", SUB_TOPICS_BY_TOPIC["证件"])
+        self.assertNotIn("Docker", SUB_TOPICS_BY_TOPIC["编程"])
+        self.assertIn("Docker", SUB_TOPICS_BY_TOPIC["服务器"])
+        self.assertNotIn("分类系统", SUB_TOPICS_BY_TOPIC["产品"])
+        self.assertIn("内容坐标", SUB_TOPICS_BY_TOPIC["产品"])
+        self.assertIn("债务风险", SUB_TOPICS_BY_TOPIC["债务"])
+        self.assertIn("投资风险", SUB_TOPICS_BY_TOPIC["投资"])
+        self.assertNotIn("风险", SUB_TOPICS_BY_TOPIC["债务"])
+        self.assertNotIn("风险", SUB_TOPICS_BY_TOPIC["投资"])
 
 
 class EntrySourceRuleTests(unittest.IsolatedAsyncioTestCase):

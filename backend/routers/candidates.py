@@ -18,7 +18,7 @@ async def list_candidates(min_count: int = 5):
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT id, candidate_type, name, domain, main_topic, status, target_name,
-                      occurrence_count, content_count, examples, created_at, updated_at
+                      occurrence_count, content_count, source_counts, examples, created_at, updated_at
                FROM core.classification_candidates
                WHERE status='pending' AND occurrence_count >= %s
                ORDER BY occurrence_count DESC, updated_at DESC""",

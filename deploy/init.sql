@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS core.classification_candidates (
     target_name TEXT,
     occurrence_count INTEGER NOT NULL DEFAULT 0,
     content_count INTEGER NOT NULL DEFAULT 0,
+    source_counts JSONB NOT NULL DEFAULT '{}'::jsonb,
     examples JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),

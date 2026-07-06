@@ -24,6 +24,50 @@ def _source_clause(alias: str, scope: str) -> str:
     return ""
 
 
+def _jsonb_tag(tag: str) -> str:
+    return f'["{tag}"]'
+
+
+def _append_tag_sql(table: str, tag: str) -> str:
+    return (
+        f"tags = CASE WHEN COALESCE(tags, '[]'::jsonb) @> '{_jsonb_tag(tag)}'::jsonb "
+        f"THEN COALESCE(tags, '[]'::jsonb) ELSE COALESCE(tags, '[]'::jsonb) || '{_jsonb_tag(tag)}'::jsonb END"
+    )
+
+
+def _apply_subtopic_migrations(conn, table: str):
+    updates = [
+        ("生活", "日常", "洗澡", "生活", "日常", "清洁", "洗澡", None),
+        ("生活", "居住", "住家证明", "生活", "证件", "住家证明", None, None),
+        ("能力", "编程", "Docker", "能力", "服务器", "Docker", "Dockerfile", "编程"),
+        ("能力", "编程", "部署", "能力", "服务器", "部署", None, "编程"),
+        ("能力", "产品", "第二脑", "能力", "产品", "ZBrain", "第二脑", None),
+        ("能力", "产品", "分类系统", "能力", "产品", "内容坐标", "分类系统", None),
+        ("财务", "债务", "风险", "财务", "债务", "债务风险", None, None),
+        ("财务", "投资", "风险", "财务", "投资", "投资风险", None, None),
+    ]
+    for old_domain, old_topic, old_sub, new_domain, new_topic, new_sub, tag, related in updates:
+        sets = ["domain=%s", "main_topic=%s", "sub_topic=%s"]
+        params = [new_domain, new_topic, new_sub]
+        if tag:
+            sets.append(_append_tag_sql(table, tag))
+        if related:
+            sets.append(
+                """related_topics = CASE
+                     WHEN COALESCE(related_topics, '[]'::jsonb) @> %s::jsonb
+                     THEN COALESCE(related_topics, '[]'::jsonb)
+                     ELSE COALESCE(related_topics, '[]'::jsonb) || %s::jsonb END"""
+            )
+            params.extend([_jsonb_tag(related), _jsonb_tag(related)])
+        params.extend([old_domain, old_topic, old_sub])
+        conn.execute(
+            f"""UPDATE {table}
+                SET {", ".join(sets)}, updated_at=now()
+                WHERE domain=%s AND main_topic=%s AND sub_topic=%s""",
+            params,
+        )
+
+
 @router.post("/reclassify")
 async def reclassify_all(payload: ReclassifyRequest):
     """Queue existing content for background classification. Never calls AI inline."""
@@ -38,6 +82,8 @@ async def reclassify_all(payload: ReclassifyRequest):
         conn.execute("UPDATE core.entries SET entry_type='规则' WHERE entry_type='决策'")
         conn.execute("UPDATE image.items SET entry_type='想法' WHERE entry_type='句子'")
         conn.execute("UPDATE image.items SET entry_type='规则' WHERE entry_type='决策'")
+        _apply_subtopic_migrations(conn, "core.entries")
+        _apply_subtopic_migrations(conn, "image.items")
         conn.execute(
             "UPDATE core.entries SET sub_topic='未细分' WHERE main_topic IS NOT NULL AND sub_topic IS NULL"
         )

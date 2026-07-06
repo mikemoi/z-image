@@ -22,6 +22,14 @@ export default function Approvals() {
     load()
   }
 
+  function sourceText(c) {
+    const counts = c.source_counts || {}
+    return ['我', '图片', '文件']
+      .filter((name) => counts[name])
+      .map((name) => `${name} ${counts[name]}`)
+      .join(' / ')
+  }
+
   return <div className="page">
     <div className="browse-head"><button className="back" onClick={() => nav('/me')}>‹ 我的</button></div>
     <h1 className="page-title">待审批</h1>
@@ -32,7 +40,9 @@ export default function Approvals() {
             <span className="entry-kind">{c.candidate_type === 'sub_topic' ? '候选子题' : '候选标签'}</span>
             <div className="card-title">{c.name}</div>
             {(c.domain || c.main_topic) && <div className="card-summary">{[c.domain, c.main_topic].filter(Boolean).join(' / ')}</div>}
-            <div className="card-snippet">出现 {c.occurrence_count} 次 · 关联 {c.content_count} 条</div>
+            <div className="card-snippet">
+              出现 {c.occurrence_count} 次 · 关联 {c.content_count} 条{sourceText(c) ? ` · ${sourceText(c)}` : ''}
+            </div>
             <div className="entry-acts">
               <button className="mini entry-save" onClick={() => approve(c.id)}>批准</button>
               <button className="mini" onClick={() => merge(c.id)}>合并</button>

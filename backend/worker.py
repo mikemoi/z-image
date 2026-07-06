@@ -16,6 +16,7 @@ from vision import call_vision
 from clean import clean_text
 from settings_store import ocr_model
 from config import VISION_DAILY_BUDGET, VISION_MAX_ATTEMPTS, WORKER_POLL_SECONDS
+from classification_schema import normalize_source
 
 log = logging.getLogger("zbrain.worker")
 
@@ -150,7 +151,7 @@ def _record_failure(item_id: int, msg: str):
 def _fetch_pending_entries(limit: int) -> list[dict]:
     with get_conn() as conn:
         return conn.execute(
-            """SELECT id, body FROM core.entries
+            """SELECT id, body, COALESCE(source, '我') AS source FROM core.entries
                WHERE deleted_at IS NULL
                  AND (ai_classify_status IS NULL OR ai_classify_status = 'pending')
                ORDER BY created_at ASC LIMIT %s""",
@@ -158,7 +159,7 @@ def _fetch_pending_entries(limit: int) -> list[dict]:
         ).fetchall()
 
 
-async def classify_entry(entry_id: int, body: str) -> bool:
+async def classify_entry(entry_id: int, body: str, source: str = "我") -> bool:
     """给一条文字打分类。成功 True(status→done),失败 False(记 failed,可续跑)。"""
     from classify import call_classify
     from settings_store import classify_model
@@ -186,7 +187,7 @@ async def classify_entry(entry_id: int, body: str) -> bool:
                  Jsonb(r["tags"]) if r["tags"] else None,
                  Jsonb(r), entry_id),
             )
-            _upsert_candidates(conn, r, "entry", entry_id)
+            _upsert_candidates(conn, r, "entry", entry_id, normalize_source(source, "我") or "我")
             conn.commit()
         return True
     except Exception as e:  # noqa: BLE001
@@ -208,30 +209,48 @@ def _mark_classify_failed(entry_id: int, msg: str):
         log.error("could not record classify failure for entry %s: %s", entry_id, e)
 
 
-def _upsert_candidates(conn, result: dict, content_kind: str, content_id: int):
+def _upsert_candidate(conn, candidate_type: str, name: str, domain: str, main_topic: str,
+                      source: str, examples: Jsonb):
+    row = conn.execute(
+        """SELECT id, source_counts FROM core.classification_candidates
+           WHERE candidate_type=%s AND name=%s AND domain=%s AND main_topic=%s""",
+        (candidate_type, name, domain, main_topic),
+    ).fetchone()
+    counts = {}
+    if row and isinstance(row.get("source_counts"), dict):
+        counts = dict(row["source_counts"])
+    counts[source] = int(counts.get(source, 0)) + 1
+    if row:
+        conn.execute(
+            """UPDATE core.classification_candidates
+               SET occurrence_count=occurrence_count + 1,
+                   content_count=content_count + 1,
+                   source_counts=%s,
+                   updated_at=now()
+               WHERE id=%s""",
+            (Jsonb(counts), row["id"]),
+        )
+    else:
+        conn.execute(
+            """INSERT INTO core.classification_candidates
+                   (candidate_type, name, domain, main_topic, status, occurrence_count,
+                    content_count, source_counts, examples)
+               VALUES (%s, %s, %s, %s, 'pending', 1, 1, %s, %s)""",
+            (candidate_type, name, domain, main_topic, Jsonb(counts), examples),
+        )
+
+
+def _upsert_candidates(conn, result: dict, content_kind: str, content_id: int, source: str):
     examples = Jsonb([{"kind": content_kind, "id": content_id}])
     for name in result.get("candidate_tags") or []:
-        conn.execute(
-            """INSERT INTO core.classification_candidates
-                   (candidate_type, name, domain, main_topic, status, occurrence_count, content_count, examples)
-               VALUES ('tag', %s, %s, %s, 'pending', 1, 1, %s)
-               ON CONFLICT (candidate_type, name, domain, main_topic)
-               DO UPDATE SET occurrence_count = core.classification_candidates.occurrence_count + 1,
-                             content_count = core.classification_candidates.content_count + 1,
-                             updated_at = now()""",
-            (name, result.get("domain") or "", result.get("main_topic") or "", examples),
-        )
+        _upsert_candidate(conn, "tag", name, result.get("domain") or "", result.get("main_topic") or "", source, examples)
     sub = result.get("candidate_sub_topic")
     if sub:
-        conn.execute(
-            """INSERT INTO core.classification_candidates
-                   (candidate_type, name, domain, main_topic, status, occurrence_count, content_count, examples)
-               VALUES ('sub_topic', %s, %s, %s, 'pending', 1, 1, %s)
-               ON CONFLICT (candidate_type, name, domain, main_topic)
-               DO UPDATE SET occurrence_count = core.classification_candidates.occurrence_count + 1,
-                             content_count = core.classification_candidates.content_count + 1,
-                             updated_at = now()""",
-            (sub, result.get("candidate_sub_topic_domain"), result.get("candidate_sub_topic_main_topic"), examples),
+        _upsert_candidate(
+            conn, "sub_topic", sub,
+            result.get("candidate_sub_topic_domain") or "",
+            result.get("candidate_sub_topic_main_topic") or "",
+            source, examples,
         )
 
 
@@ -240,6 +259,7 @@ def _fetch_pending_items(limit: int) -> list[dict]:
     with get_conn() as conn:
         return conn.execute(
             """SELECT i.id, i.summary,
+                      COALESCE(i.source, '图片') AS source,
                       (SELECT clean_text FROM image.contents c
                        WHERE c.item_id=i.id AND c.is_current=true
                        ORDER BY c.created_at DESC LIMIT 1) AS clean_text
@@ -252,7 +272,7 @@ def _fetch_pending_items(limit: int) -> list[dict]:
         ).fetchall()
 
 
-async def classify_item(item_id: int, text: str) -> bool:
+async def classify_item(item_id: int, text: str, source: str = "图片") -> bool:
     from classify import call_classify
     from settings_store import classify_model
     try:
@@ -278,7 +298,7 @@ async def classify_item(item_id: int, text: str) -> bool:
                  Jsonb(r["tags"]) if r["tags"] else None,
                  item_id),
             )
-            _upsert_candidates(conn, r, "item", item_id)
+            _upsert_candidates(conn, r, "item", item_id, normalize_source(source, "图片") or "图片")
             conn.commit()
         return True
     except Exception as e:  # noqa: BLE001
@@ -315,13 +335,13 @@ async def _classify_loop():
             for e in entries:
                 if not await _take_budget():
                     break
-                await classify_entry(e["id"], e["body"])
+                await classify_entry(e["id"], e["body"], e.get("source") or "我")
                 did = True
             for it in items:
                 if not await _take_budget():
                     break
                 txt = " ".join(filter(None, [it.get("summary"), it.get("clean_text")]))
-                await classify_item(it["id"], txt)
+                await classify_item(it["id"], txt, it.get("source") or "图片")
                 did = True
         except Exception as e:  # noqa: BLE001
             log.error("classify cycle error: %s", e)

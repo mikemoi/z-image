@@ -196,6 +196,21 @@
 
 Vision 仍生成旧 `theme/use_tag/granularity` 供兼容链路使用；统一分类 Worker 写入 `entry_type/domain/main_topic/sub_topic/related_topics/tags`，不覆盖旧字段。截图 `source` 默认写“图片”。
 
+### `core.classification_candidates` — 受控生长候选池
+
+AI 可以提名候选标签或候选子题，但不能直接扩建正式体系。候选达到阈值后进入“我的 → 待审批”。
+
+| 字段 | 类型 | 含义 |
+|---|---|---|
+| `candidate_type` | TEXT | `tag` 或 `sub_topic` |
+| `name` | TEXT | 候选名称 |
+| `domain` / `main_topic` | TEXT | 候选子题建议位置；同名跨主题分开累计 |
+| `status` | TEXT | pending / active / ignored / merged |
+| `target_name` | TEXT | 合并到已有项时记录目标名 |
+| `occurrence_count` / `content_count` | INTEGER | 出现次数和关联内容数 |
+| `source_counts` | JSONB | 来源分布，如 `{"我":3,"图片":2,"文件":1}` |
+| `examples` | JSONB | 示例内容引用 |
+
 **`ai_output` JSONB 结构**(由 `vision.normalize` 产出,worker 原样存):
 ```jsonc
 {

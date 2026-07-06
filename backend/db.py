@@ -96,11 +96,13 @@ def ensure_schema():
                 target_name TEXT,
                 occurrence_count INTEGER NOT NULL DEFAULT 0,
                 content_count INTEGER NOT NULL DEFAULT 0,
+                source_counts JSONB NOT NULL DEFAULT '{}'::jsonb,
                 examples JSONB,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
                 UNIQUE(candidate_type, name, domain, main_topic)
             )""")
+        conn.execute("ALTER TABLE core.classification_candidates ADD COLUMN IF NOT EXISTS source_counts JSONB NOT NULL DEFAULT '{}'::jsonb")
         conn.commit()
 
 
