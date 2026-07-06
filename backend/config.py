@@ -26,5 +26,8 @@ VISION_DAILY_BUDGET = int(os.getenv("VISION_DAILY_BUDGET", "0"))
 # 单个 item 自动重试上限,超过停在 review 等人工兜底
 VISION_MAX_ATTEMPTS = int(os.getenv("VISION_MAX_ATTEMPTS", "3"))
 
+# 单条内容自动分类重试上限,超过停在 failed 等人工重新分类
+CLASSIFY_MAX_ATTEMPTS = int(os.getenv("CLASSIFY_MAX_ATTEMPTS", "3"))
+
 # 后台 worker 轮询间隔(秒)
 WORKER_POLL_SECONDS = int(os.getenv("WORKER_POLL_SECONDS", "8"))

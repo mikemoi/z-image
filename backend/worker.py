@@ -15,7 +15,9 @@ from db import get_conn
 from vision import call_vision
 from clean import clean_text
 from settings_store import ocr_model
-from config import VISION_DAILY_BUDGET, VISION_MAX_ATTEMPTS, WORKER_POLL_SECONDS
+from config import (
+    VISION_DAILY_BUDGET, VISION_MAX_ATTEMPTS, WORKER_POLL_SECONDS, CLASSIFY_MAX_ATTEMPTS,
+)
 from classification_schema import normalize_source
 
 log = logging.getLogger("zbrain.worker")
@@ -153,14 +155,21 @@ def _fetch_pending_entries(limit: int) -> list[dict]:
         return conn.execute(
             """SELECT id, body, COALESCE(source, '我') AS source FROM core.entries
                WHERE deleted_at IS NULL
-                 AND (ai_classify_status IS NULL OR ai_classify_status = 'pending')
+                 AND (ai_classify_status IS NULL OR ai_classify_status = 'pending'
+                      OR (ai_classify_status = 'failed'
+                          AND COALESCE((ai_classify_output->>'_attempts')::int, 0) < %s))
                ORDER BY created_at ASC LIMIT %s""",
-            (limit,),
+            (CLASSIFY_MAX_ATTEMPTS, limit),
         ).fetchall()
 
 
+def _is_empty_classification(r: dict) -> bool:
+    """模型完全没归到类:类型/领域/主题都空,视为失败而不是"完成但空"。"""
+    return not (r.get("entry_type") or r.get("domain") or r.get("main_topic"))
+
+
 async def classify_entry(entry_id: int, body: str, source: str = "我") -> bool:
-    """给一条文字打分类。成功 True(status→done),失败 False(记 failed,可续跑)。"""
+    """给一条文字打分类。成功 True(status→done),失败 False(记 failed,可续跑到上限)。"""
     from classify import call_classify
     from settings_store import classify_model
     try:
@@ -168,6 +177,10 @@ async def classify_entry(entry_id: int, body: str, source: str = "我") -> bool:
     except Exception as e:  # noqa: BLE001
         log.warning("classify failed for entry %s: %s", entry_id, e)
         _mark_classify_failed(entry_id, str(e))
+        return False
+    if _is_empty_classification(r):
+        log.warning("classify returned empty result for entry %s", entry_id)
+        _mark_classify_failed(entry_id, "empty classification result")
         return False
     try:
         with get_conn() as conn:
@@ -197,12 +210,19 @@ async def classify_entry(entry_id: int, body: str, source: str = "我") -> bool:
 
 
 def _mark_classify_failed(entry_id: int, msg: str):
+    """失败次数累加进 ai_classify_output._attempts,达上限前 _fetch_pending_entries 还会捞回来重跑。"""
     try:
         with get_conn() as conn:
+            prev = conn.execute(
+                "SELECT ai_classify_output FROM core.entries WHERE id=%s", (entry_id,)
+            ).fetchone()
+            attempts = 0
+            if prev and prev["ai_classify_output"] and isinstance(prev["ai_classify_output"], dict):
+                attempts = int(prev["ai_classify_output"].get("_attempts", 0))
             conn.execute(
                 """UPDATE core.entries SET ai_classify_status = 'failed',
                        ai_classify_output = %s, updated_at = now() WHERE id = %s""",
-                (Jsonb({"_error": msg[:500]}), entry_id),
+                (Jsonb({"_error": msg[:500], "_attempts": attempts + 1}), entry_id),
             )
             conn.commit()
     except Exception as e:  # noqa: BLE001
@@ -265,10 +285,12 @@ def _fetch_pending_items(limit: int) -> list[dict]:
                        ORDER BY c.created_at DESC LIMIT 1) AS clean_text
                FROM image.items i
                WHERE i.deleted_at IS NULL AND i.status='ok'
-                 AND (i.ai_classify_status IS NULL OR i.ai_classify_status='pending')
+                 AND (i.ai_classify_status IS NULL OR i.ai_classify_status='pending'
+                      OR (i.ai_classify_status='failed'
+                          AND COALESCE((i.ai_classify_output->>'_attempts')::int, 0) < %s))
                  AND i.summary IS NOT NULL
                ORDER BY i.created_at ASC LIMIT %s""",
-            (limit,),
+            (CLASSIFY_MAX_ATTEMPTS, limit),
         ).fetchall()
 
 
@@ -279,7 +301,11 @@ async def classify_item(item_id: int, text: str, source: str = "图片") -> bool
         r = await call_classify(text, model=classify_model())
     except Exception as e:  # noqa: BLE001
         log.warning("classify failed for item %s: %s", item_id, e)
-        _set_item_classify(item_id, "failed", None)
+        _mark_item_classify_failed(item_id, str(e))
+        return False
+    if _is_empty_classification(r):
+        log.warning("classify returned empty result for item %s", item_id)
+        _mark_item_classify_failed(item_id, "empty classification result")
         return False
     try:
         with get_conn() as conn:
@@ -303,20 +329,28 @@ async def classify_item(item_id: int, text: str, source: str = "图片") -> bool
         return True
     except Exception as e:  # noqa: BLE001
         log.warning("classify db write failed for item %s: %s", item_id, e)
-        _set_item_classify(item_id, "failed", None)
+        _mark_item_classify_failed(item_id, f"db: {e}")
         return False
 
 
-def _set_item_classify(item_id: int, status: str, _out):
+def _mark_item_classify_failed(item_id: int, msg: str):
+    """失败次数累加进 ai_classify_output._attempts,达上限前 _fetch_pending_items 还会捞回来重跑。"""
     try:
         with get_conn() as conn:
+            prev = conn.execute(
+                "SELECT ai_classify_output FROM image.items WHERE id=%s", (item_id,)
+            ).fetchone()
+            attempts = 0
+            if prev and prev["ai_classify_output"] and isinstance(prev["ai_classify_output"], dict):
+                attempts = int(prev["ai_classify_output"].get("_attempts", 0))
             conn.execute(
-                "UPDATE image.items SET ai_classify_status=%s, updated_at=now() WHERE id=%s",
-                (status, item_id),
+                """UPDATE image.items SET ai_classify_status='failed',
+                       ai_classify_output=%s, updated_at=now() WHERE id=%s""",
+                (Jsonb({"_error": msg[:500], "_attempts": attempts + 1}), item_id),
             )
             conn.commit()
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as e:  # noqa: BLE001
+        log.error("could not record classify failure for item %s: %s", item_id, e)
 
 
 # ── 后台循环 ─────────────────────────────────────────────────────────────────

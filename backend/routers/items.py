@@ -105,21 +105,16 @@ async def upload(images: list[UploadFile] = File(...)):
                 # DB 里存磁盘路径(与部署环境一致的绝对/相对形式)
                 file_path = str(abs_path)
 
-                # files 行按 checksum 复用,保持文件表与磁盘 1:1;item 每次新建
-                row = conn.execute(
-                    "SELECT id FROM image.files WHERE checksum = %s LIMIT 1",
-                    (checksum,),
-                ).fetchone()
-                if row:
-                    file_id = row["id"]
-                else:
-                    file_id = conn.execute(
-                        """INSERT INTO image.files
-                               (file_path, file_type, original_filename, checksum, file_size)
-                           VALUES (%s, 'image', %s, %s, %s)
-                           RETURNING id""",
-                        (file_path, up.filename or filename, checksum, len(data)),
-                    ).fetchone()["id"]
+                # files 行按 checksum 原子 upsert(唯一约束打底),避免并发上传同图时
+                # 先查后插的竞态产生两行指向同一磁盘文件(purge 时可能误删仍被引用的文件)。
+                file_id = conn.execute(
+                    """INSERT INTO image.files
+                           (file_path, file_type, original_filename, checksum, file_size)
+                       VALUES (%s, 'image', %s, %s, %s)
+                       ON CONFLICT (checksum) DO UPDATE SET checksum = EXCLUDED.checksum
+                       RETURNING id""",
+                    (file_path, up.filename or filename, checksum, len(data)),
+                ).fetchone()["id"]
 
                 conn.execute(
                     "INSERT INTO image.items (file_id, status) VALUES (%s, 'review')",

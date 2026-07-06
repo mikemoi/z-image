@@ -42,6 +42,34 @@ def ensure_schema():
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS highlights JSONB")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS ai_classify_status TEXT")
         conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS ai_classified_at TIMESTAMPTZ")
+        conn.execute("ALTER TABLE image.items ADD COLUMN IF NOT EXISTS ai_classify_output JSONB")
+        # checksum 去重底子补唯一约束前,先合并历史里可能存在的重复行(同 checksum 多行 files)。
+        # 把引用重复行的 item 改指向保留行(最小 id),再删掉多余的 files 行,最后建唯一索引。
+        # 磁盘文件不动:同 checksum 磁盘文件本就只有一份,这里只清理 DB 侧的重复记录行。
+        conn.execute("""
+            WITH dupes AS (
+                SELECT checksum, min(id) AS keep_id
+                FROM image.files
+                GROUP BY checksum
+                HAVING count(*) > 1
+            )
+            UPDATE image.items i
+            SET file_id = d.keep_id
+            FROM image.files f
+            JOIN dupes d ON d.checksum = f.checksum
+            WHERE i.file_id = f.id AND f.id <> d.keep_id
+        """)
+        conn.execute("""
+            DELETE FROM image.files f
+            USING (
+                SELECT checksum, min(id) AS keep_id
+                FROM image.files
+                GROUP BY checksum
+                HAVING count(*) > 1
+            ) d
+            WHERE f.checksum = d.checksum AND f.id <> d.keep_id
+        """)
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_files_checksum_unique ON image.files (checksum)")
         # v0.3 文字入口:手写/剪藏的文字条目(速记/日志/计划/剪藏),复用 core,靠 kind 区分
         conn.execute("""
             CREATE TABLE IF NOT EXISTS core.entries (

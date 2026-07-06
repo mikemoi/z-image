@@ -62,6 +62,7 @@ _MIME = {
 _THEMES = {"trading", "ai", "adhd", "language", "life", "other"}
 _USES = {"方法", "避坑", "心态", "工具", "灵感"}
 _GRANS = {"knowledge", "fragment", "asset"}
+_QUALITY = {"干货", "反面样本", "无信息量"}
 
 
 def _mime_for(path: str) -> str:
@@ -171,8 +172,6 @@ INSIGHT_PROMPT = """你是用户第二脑里的讲解员。用户存了一张图
 5. suggested_theme_reason:若提议了新分类,一句话说为什么;否则留空。
 
 输出示例:{{"explanation":"...","quality":"干货","quality_note":"...","suggested_theme":"","suggested_theme_reason":""}}"""
-
-_QUALITY = {"干货", "反面样本", "无信息量"}
 
 
 def normalize_insight(raw: dict) -> dict:

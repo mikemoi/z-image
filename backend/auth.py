@@ -1,4 +1,6 @@
 """单用户鉴权:请求头带 token,和环境变量里的比对。"""
+import secrets
+
 from fastapi import Header, HTTPException, status
 from config import AUTH_TOKEN
 
@@ -14,7 +16,7 @@ async def require_token(authorization: str | None = Header(default=None)):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "missing authorization header")
 
     token = authorization.removeprefix("Bearer ").strip()
-    if token != AUTH_TOKEN:
+    if not secrets.compare_digest(token, AUTH_TOKEN):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid token")
 
     return True

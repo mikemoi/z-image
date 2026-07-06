@@ -1,4 +1,5 @@
 """zbrain 后端入口。API + 后台 worker + 可选挂载前端 dist。"""
+import logging
 from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends
@@ -8,12 +9,23 @@ from fastapi.responses import FileResponse
 
 from db import open_pool, close_pool, check_db, ensure_schema
 from auth import require_token
+from config import AUTH_TOKEN
 from routers import items, files, stats, feed, search, entries, settings, trash, admin, candidates
 from worker import start_worker, stop_worker, budget_status
+
+log = logging.getLogger("zbrain.main")
+
+_DEFAULT_AUTH_TOKEN = "dev-token-change-me"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if AUTH_TOKEN == _DEFAULT_AUTH_TOKEN:
+        log.warning(
+            "AUTH_TOKEN 仍是默认开发口令 '%s' —— 若这是生产/公网部署,请立刻在 .env 里改掉,"
+            "否则任何人都能猜到这个口令直接访问 upload/delete。",
+            _DEFAULT_AUTH_TOKEN,
+        )
     open_pool()
     ensure_schema()
     start_worker()

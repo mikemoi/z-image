@@ -251,7 +251,7 @@ async def logs(limit: int = Query(default=200, le=500), offset: int = Query(defa
 @router.get("/logs/on-this-day", response_model=list[Entry])
 async def on_this_day():
     """往年今天:同月同日、往年的日志。温柔冒出,不催办(偶遇气质,同"重新遇见")。"""
-    today = date.today()
+    today = datetime.now(MADRID).date()
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT id, kind, body, status, mood, pinned, logged_for, source_item_id,

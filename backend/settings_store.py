@@ -7,23 +7,24 @@ from db import get_conn
 from config import VISION_MODEL, INSIGHT_MODEL
 
 # 预置候选(方便下拉;非限制,前端可自定义输入任意 OpenRouter 模型 id)。
+# OpenRouter 模型目录常变,这里只是起点,不是权威列表。
 # OCR/自动处理偏省钱档,问问AI 偏质量档,两者都需支持读图(vision)。
 MODEL_CANDIDATES = {
     "ocr_model": [
         "openai/gpt-4.1-mini",
         "openai/gpt-4o-mini",
-        "google/gemini-2.0-flash-001",
+        "anthropic/claude-haiku-4.5",
     ],
     "insight_model": [
+        "anthropic/claude-sonnet-4.5",
+        "anthropic/claude-opus-4.1",
         "openai/gpt-4.1",
-        "anthropic/claude-sonnet-4",
         "google/gemini-2.5-pro",
-        "openai/gpt-4o",
     ],
     "classify_model": [
         "openai/gpt-4.1-mini",
+        "anthropic/claude-haiku-4.5",
         "openai/gpt-4o-mini",
-        "google/gemini-2.0-flash-001",
     ],
 }
 

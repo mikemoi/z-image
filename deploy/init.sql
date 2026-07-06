@@ -131,7 +131,7 @@ CREATE TABLE IF NOT EXISTS image.files (
     file_size         BIGINT,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_files_checksum ON image.files (checksum);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_files_checksum_unique ON image.files (checksum);
 
 CREATE TABLE IF NOT EXISTS image.items (
     id              BIGSERIAL PRIMARY KEY,
@@ -156,6 +156,7 @@ CREATE TABLE IF NOT EXISTS image.items (
     highlights      JSONB,                  -- 重点原句数组
     ai_classify_status TEXT,                -- 自动分类状态(NULL/pending/done/failed)
     ai_classified_at   TIMESTAMPTZ,
+    ai_classify_output JSONB,               -- 分类器规整结果/失败原因与重试次数
     reviewed_at     TIMESTAMPTZ,
     promoted_at     TIMESTAMPTZ,
     deleted_at      TIMESTAMPTZ,

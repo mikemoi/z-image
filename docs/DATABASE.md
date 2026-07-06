@@ -159,7 +159,7 @@
 | `file_size` | BIGINT | 字节数 |
 | `created_at` | TIMESTAMPTZ | 落盘时间 |
 
-索引:`idx_files_checksum`。一个 file 可被多个 item 引用(同图重复上传复用 file 行)。
+索引:`idx_files_checksum_unique`(唯一约束,上传走 `ON CONFLICT (checksum)` 原子 upsert)。一个 file 可被多个 item 引用(同图重复上传复用 file 行)。
 
 ### `image.items` — 第二层:条目(处理状态 + 双维度 + 闸门)
 
