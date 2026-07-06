@@ -14,6 +14,11 @@ function asDraft(item) {
 function splitTags(value) {
   return Array.from(new Set((value || '').split(/[,，\n]/).map((v) => v.trim()).filter(Boolean))).slice(0, 5)
 }
+function fmtIdeaTime(ts) {
+  if (!ts) return ''
+  const dt = new Date(ts)
+  return `${dt.getFullYear()}.${String(dt.getMonth() + 1).padStart(2, '0')}.${String(dt.getDate()).padStart(2, '0')}  ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`
+}
 
 export default function Detail() {
   const { id } = useParams()
@@ -26,6 +31,7 @@ export default function Detail() {
   const [insight, setInsight] = useState(null)
   const [asking, setAsking] = useState(false)
   const [idea, setIdea] = useState('')
+  const [linkedIdeas, setLinkedIdeas] = useState([])
   const [marking, setMarking] = useState(false)
   const [markDraft, setMarkDraft] = useState([])
   const markTextRef = useRef(null)
@@ -33,6 +39,7 @@ export default function Detail() {
   useEffect(() => {
     setInsight(null)
     api.getItem(id).then((it) => { setItem(it); setDraft(asDraft(it)) }).catch(() => setItem(false))
+    api.listEntries({ kind: 'idea', source_item_id: id }).then(setLinkedIdeas).catch(() => setLinkedIdeas([]))
   }, [id])
 
   async function ask(refresh = false) {
@@ -76,7 +83,8 @@ export default function Detail() {
   }
   async function saveIdea() {
     if (!idea.trim()) return
-    await api.createEntry({ kind: 'idea', body: idea.trim(), source_item_id: item.id })
+    const created = await api.createEntry({ kind: 'idea', body: idea.trim(), source_item_id: item.id })
+    setLinkedIdeas((xs) => [created, ...xs])
     setIdea(''); setMsg('想法记下了 ✓'); setTimeout(() => setMsg(''), 1800)
   }
 
@@ -187,9 +195,19 @@ export default function Detail() {
         </div>
       )}
 
-      {/* 我的想法:看这张图产生的思考,存进想法流(挂上来源截图) */}
+      {/* 我的想法:看这张图产生的思考,存进想法流(挂上来源截图)。先看已有的,再写新的。 */}
       <div className="detail-block">
-        <div className="block-h">我的想法</div>
+        <div className="block-h">我的想法{linkedIdeas.length > 0 ? `(${linkedIdeas.length})` : ''}</div>
+        {linkedIdeas.length > 0 && (
+          <div className="linked-ideas">
+            {linkedIdeas.map((li) => (
+              <div key={li.id} className="entry-card">
+                <div className="entry-time">{fmtIdeaTime(li.created_at)}</div>
+                <HighlightText text={li.body} highlights={li.highlights} className="entry-body" />
+              </div>
+            ))}
+          </div>
+        )}
         <textarea className="capture-input" rows={3} value={idea}
           onChange={(e) => setIdea(e.target.value)}
           placeholder="看到这张图,你想到了什么?" />

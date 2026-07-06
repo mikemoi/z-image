@@ -172,6 +172,7 @@ async def reclassify(entry_id: int):
 async def list_entries(
     kind: str | None = Query(default=None),
     status: str | None = Query(default=None),
+    source_item_id: int | None = Query(default=None),
     limit: int = Query(default=100, le=500),
     offset: int = Query(default=0, ge=0),
 ):
@@ -181,6 +182,8 @@ async def list_entries(
         where.append("kind = %s"); params.append(kind)
     if status:
         where.append("status = %s"); params.append(status)
+    if source_item_id is not None:
+        where.append("source_item_id = %s"); params.append(source_item_id)
     with get_conn() as conn:
         rows = conn.execute(
             f"""SELECT id, kind, body, status, mood, pinned, logged_for, source_item_id,

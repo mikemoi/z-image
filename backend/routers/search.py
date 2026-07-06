@@ -25,6 +25,11 @@ def _snippet(text: str, q: str, span: int = 40) -> str | None:
     return ("…" if start > 0 else "") + text[start:end].strip() + ("…" if end < len(text) else "")
 
 
+def _escape_like(s: str) -> str:
+    """转义 ILIKE 模式里的字面 % 和 _ (含反斜杠本身),避免用户搜"100%"这类内容时被当成通配符。"""
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _scope_sql(alias: str, scope: str) -> str:
     source = f"COALESCE({alias}.source, '')"
     if scope == "mine":
@@ -41,8 +46,7 @@ async def search(
     limit: int = Query(default=50, le=200),
 ):
     """按关键词检索全部截图条目(标题/摘要/正文)+ 手写文字(速记/日志/计划/剪藏)。"""
-    like = f"%{q}%"
-    hits: list[SearchHit] = []
+    like = f"%{_escape_like(q)}%"
     with get_conn() as conn:
         img_rows = conn.execute(
             """SELECT i.id AS item_id, f.checksum, i.title, i.summary, i.granularity,
@@ -75,23 +79,30 @@ async def search(
             (like, limit),
         ).fetchall()
 
-    for r in img_rows:
-        snippet = _snippet(r["clean_text"], q) if r.get("clean_text") else None
-        hits.append(SearchHit(
-            source="image", item_id=r["item_id"], checksum=r["checksum"],
-            title=r["title"], summary=r["summary"], granularity=r["granularity"], snippet=snippet,
-            entry_type=normalize_entry_type(r.get("entry_type")), domain=r.get("domain"),
-            main_topic=r.get("main_topic"), sub_topic=r.get("sub_topic"),
-            related_topics=r.get("related_topics"), tags=r.get("tags"),
-            source_label=normalize_source(r.get("source_label"), "图片"),
-        ))
-    for r in entry_rows:
-        hits.append(SearchHit(
-            source="entry", entry_id=r["entry_id"], kind=r["kind"],
-            summary=r["body"][:120], snippet=_snippet(r["body"], q),
-            entry_type=normalize_entry_type(r.get("entry_type")), domain=r.get("domain"),
-            main_topic=r.get("main_topic"), sub_topic=r.get("sub_topic"),
-            related_topics=r.get("related_topics"), tags=r.get("tags"),
-            source_label=normalize_source(r.get("source_label"), "我"),
-        ))
-    return hits[:limit]
+    # 两路各按 limit 取够候选后在内存按时间合并,再统一截断;
+    # 避免图片命中天然更多时把文字命中挤出结果之外。
+    combined = [("image", r) for r in img_rows] + [("entry", r) for r in entry_rows]
+    combined.sort(key=lambda pair: pair[1]["created_at"], reverse=True)
+
+    hits: list[SearchHit] = []
+    for kind, r in combined[:limit]:
+        if kind == "image":
+            snippet = _snippet(r["clean_text"], q) if r.get("clean_text") else None
+            hits.append(SearchHit(
+                source="image", item_id=r["item_id"], checksum=r["checksum"],
+                title=r["title"], summary=r["summary"], granularity=r["granularity"], snippet=snippet,
+                entry_type=normalize_entry_type(r.get("entry_type")), domain=r.get("domain"),
+                main_topic=r.get("main_topic"), sub_topic=r.get("sub_topic"),
+                related_topics=r.get("related_topics"), tags=r.get("tags"),
+                source_label=normalize_source(r.get("source_label"), "图片"),
+            ))
+        else:
+            hits.append(SearchHit(
+                source="entry", entry_id=r["entry_id"], kind=r["kind"],
+                summary=r["body"][:120], snippet=_snippet(r["body"], q),
+                entry_type=normalize_entry_type(r.get("entry_type")), domain=r.get("domain"),
+                main_topic=r.get("main_topic"), sub_topic=r.get("sub_topic"),
+                related_topics=r.get("related_topics"), tags=r.get("tags"),
+                source_label=normalize_source(r.get("source_label"), "我"),
+            ))
+    return hits

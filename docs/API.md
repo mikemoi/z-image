@@ -63,7 +63,7 @@ Item 的统一分类字段为 `entry_type/domain/main_topic/sub_topic/related_to
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `` | 通用列表，支持 `kind/status/limit/offset` |
+| GET | `` | 通用列表，支持 `kind/status/source_item_id/limit/offset` |
 | GET | `/ideas` | 想法流，包含来源截图 checksum |
 | GET | `/inbox` | 兼容旧 inbox 数据；当前创建流程不再产生 inbox |
 | GET | `/plans` | pinned 计划 |
